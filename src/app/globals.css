@@ -1,3 +1,43 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0E1420;
+  --color-ink-panel: #161F33;
+  --color-ink-line: #26314A;
+  --color-brass: #C9A227;
+  --color-teal: #2F6F6B;
+  --color-parchment: #EDEAE0;
+  --color-parchment-muted: #8B93A8;
+  --color-danger: #B4462F;
+
+  --font-display: var(--font-fraunces), serif;
+  --font-sans: var(--font-space-grotesk), sans-serif;
+  --font-mono: var(--font-jetbrains-mono), monospace;
+}
+
+@keyframes capture {
+  0% { box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.55); }
+  70% { box-shadow: 0 0 0 14px rgba(201, 162, 39, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 162, 39, 0); }
+}
+
+@layer base {
+  body {
+    @apply bg-ink text-parchment font-sans antialiased;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+  }
+  /* Focus clavier toujours visible — accessibilité non négociable */
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
