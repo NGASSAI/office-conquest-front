@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../../lib/api';
 import { AppHeader } from '../../../../components/app-header';
 import { RoundGame } from '../../../../components/round-game';
+import { HelpButton } from '../../../../components/help-button';
 import { useAuthStore } from '../../../../store/auth-store';
 
 interface DuelDetail {
@@ -92,7 +94,7 @@ export default function DuelPlayPage() {
     return (
       <>
         <AppHeader />
-        <main className="mx-auto max-w-xl px-6 py-10">
+        <main className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
             {error ?? 'Duel introuvable.'}
           </div>
@@ -107,13 +109,30 @@ export default function DuelPlayPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-xl px-6 py-10">
-        <div className="mb-8 flex items-center justify-between border border-ink-line px-5 py-4">
-          <div>
-            <p className="font-mono text-xs text-parchment-muted">Face à</p>
-            <p className="text-lg text-parchment">{opponent.pseudo}</p>
+      <main className="mx-auto max-w-xl px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border border-ink-line px-4 py-4 sm:px-5">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="font-mono text-xs text-parchment-muted">Face à</p>
+              <p className="text-lg text-parchment">{opponent.pseudo}</p>
+            </div>
           </div>
-          <span className="font-mono text-xs uppercase text-brass">{duel.type}</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/duel" className="text-sm text-parchment-muted hover:text-brass">
+              ← Retour
+            </Link>
+            <span className="font-mono text-xs uppercase text-brass">{duel.type}</span>
+            <HelpButton
+              title="Comment jouer ?"
+              content={[
+                "Quiz : sélectionne la bonne réponse.",
+                "Mémoire : reproduis la séquence de couleurs.",
+                "Réflexe : clique sur 'Prêt' puis clique le plus vite possible quand le bouton apparaît.",
+                "Une fois ta réponse envoyée, attends que ton adversaire joue.",
+                "Le duel se termine automatiquement quand les deux réponses sont reçues."
+              ]}
+            />
+          </div>
         </div>
 
         {isCompleted && (

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
+import { HelpButton } from '../../../components/help-button';
 
 interface Territory {
   id: string;
@@ -95,8 +97,29 @@ export default function MapPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-5xl px-6 py-10">
-        <h1 className="mb-1 text-3xl font-semibold text-parchment">Carte du bureau</h1>
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="mb-1 text-3xl font-semibold text-parchment">Carte des territoires</h1>
+            <p className="text-sm text-parchment-muted">
+              L&apos;état de la conquête en temps réel.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
+              ← Retour
+            </Link>
+            <HelpButton
+              title="La carte"
+              content={[
+                "Chaque territoire est contrôlé par une équipe.",
+                "Les territoires changent de propriétaire quand une équipe gagne un raid.",
+                "Le classement montre les équipes par nombre de territoires.",
+                "Plus ton équipe a de territoires, plus elle domine la carte !"
+              ]}
+            />
+          </div>
+        </div>
         <p className="mb-8 text-sm text-parchment-muted">
           Plan de conquête — {territories.length} territoires en jeu.
         </p>
@@ -109,13 +132,14 @@ export default function MapPage() {
 
         <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
           {/* --- Plan SVG interactif --- */}
-          <section className="border border-ink-line p-4">
-            <svg
-              viewBox={`0 0 800 ${svgHeight}`}
-              className="w-full"
-              role="img"
-              aria-label="Plan des territoires du bureau"
-            >
+          <section className="min-w-0 border border-ink-line p-3 sm:p-4">
+            <div className="overflow-x-auto">
+              <svg
+                viewBox={`0 0 800 ${svgHeight}`}
+                className="w-full min-w-140 sm:min-w-0"
+                role="img"
+                aria-label="Plan des territoires du bureau"
+              >
               {territories.map((territory, index) => {
                 const rect = getRoomRect(territory.name, index);
                 const color = territory.ownerTeam?.color ?? '#26314A';
@@ -164,7 +188,8 @@ export default function MapPage() {
                   </g>
                 );
               })}
-            </svg>
+              </svg>
+            </div>
 
                         {/* --- Détail du territoire sélectionné --- */}
             {selected && (

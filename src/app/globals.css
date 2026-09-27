@@ -21,17 +21,64 @@
   100% { box-shadow: 0 0 0 0 rgba(201, 162, 39, 0); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @layer base {
+  html,
+  body {
+    min-width: 320px;
+    max-width: 100%;
+  }
   body {
     @apply bg-ink text-parchment font-sans antialiased;
+    line-height: 1.6;
+    overflow-x: clip;
+  }
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    max-width: 100%;
   }
   h1, h2, h3 {
     @apply font-display;
+    line-height: 1.2;
+  }
+  h1 {
+    letter-spacing: -0.02em;
+  }
+  p {
+    line-height: 1.6;
   }
   /* Focus clavier toujours visible — accessibilité non négociable */
   :focus-visible {
     outline: 2px solid var(--color-brass);
     outline-offset: 2px;
+  }
+  /* Amélioration du contraste pour les textes muted */
+  .text-parchment-muted {
+    color: #9BA3B8;
+  }
+  /* Transitions fluides pour les éléments interactifs */
+  button, a, input, select {
+    transition: all 0.15s ease-in-out;
+  }
+}
+
+@media (max-width: 639px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }
 

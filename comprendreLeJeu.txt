@@ -1,0 +1,241 @@
+## 1. Le jeu en une phrase
+
+C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affrontent pour conquérir les territoires de leur entreprise en complétant des défis quotidiens, participant à des raids d'équipe en temps réel et en lançant des duels 1v1 éclairs.
+
+---
+
+## 2. Le parcours d'un joueur, étape par étape
+
+**Inscription**
+- Le joueur arrive sur la page d'accueil et s'inscrit avec son email professionnel, un pseudo et un mot de passe (minimum 8 caractères, majuscule + minuscule + chiffre requis)
+- Il peut immédiatement configurer une "phrase secrète" (optionnelle mais recommandée) qui servira à réinitialiser son mot de passe s'il l'oublie
+- À l'inscription, il n'a pas encore d'équipe - il doit en choisir une dans son profil avant de pouvoir jouer
+
+**Première connexion**
+- Il se connecte avec email/mot de passe
+- Le système génère deux tokens : un access token (court, 15 minutes) stocké en mémoire du navigateur, et un refresh token (30 jours) stocké dans un cookie httpOnly sécurisé
+- Le "remember me" fonctionne automatiquement grâce à ce cookie : s'il revient sur le site, le refresh token est utilisé pour obtenir un nouvel access token sans qu'il ait à se reconnecter
+
+**Choix d'équipe**
+- Il va dans son profil pour choisir une équipe parmi celles créées par l'admin
+- Le changement d'équipe est libre et instantané - il peut changer d'équipe à tout moment
+- Chaque équipe a une couleur et un seuil d'énergie (par défaut 1000) qui déclenche les raids
+
+**Session de jeu typique**
+- Il arrive sur le dashboard où il voit le défi du jour (quiz, énigme, mémoire ou réflexe)
+- Il complète le défi une seule fois par jour - le score est calculé côté serveur et converti en énergie pour son équipe
+- S'il n'a pas d'équipe, un message l'invite à en rejoindre une
+- Dans la sidebar, il voit les raids actifs impliquant son équipe et peut y participer en temps réel
+- Il peut aussi aller sur la page "Duel" pour défier un collègue en 1v1
+- Il consulte la carte pour voir quels territoires sont contrôlés par quelle équipe
+
+---
+
+## 3. Les modes de jeu
+
+### Défi quotidien solo (asynchrone)
+
+**Déclenchement**
+- Un admin crée un défi pour une date donnée via l'interface admin
+- Le défi apparaît automatiquement sur le dashboard de tous les joueurs ce jour-là
+- Chaque joueur ne peut jouer qu'une seule fois par jour (contrainte unique en base de données)
+
+**Comment on joue**
+- **QUIZ** : Une question avec 4 options, le joueur sélectionne une réponse et valide
+- **RIDDLE** : Une énigme avec un champ texte libre pour la réponse
+- **MEMORY** : Une séquence de couleurs s'affiche (ex: rouge-bleu-vert), le joueur doit la reproduire dans l'ordre
+- **REFLEX** : Un bouton apparaît après un délai aléatoire, le joueur doit cliquer le plus vite possible
+
+**Calcul du score**
+- Pour QUIZ/RIDDLE : 0 si faux, 50-100 points si vrai selon la rapidité (bonus de vitesse)
+- Pour MEMORY : pourcentage de la séquence correcte (ex: 3/5 correct = 60%)
+- Pour REFLEX : score basé sur le temps de réaction, borné entre 0 et 100
+- L'énergie gagnée = score × difficulté du défi
+
+**Anti-triche**
+- La bonne réponse n'est jamais envoyée au client (seul le contenu sans la réponse est transmis)
+- Le score est recalculé côté serveur à partir de la réponse stockée en base
+- La contrainte unique `[userId, challengeId]` empêche de rejouer le même jour
+- Pour REFLEX, le temps de réaction est borné côté serveur pour éviter les valeurs absurdes
+
+### Raids d'équipe (temps réel via WebSocket)
+
+**Déclenchement automatique**
+- Dès qu'une équipe atteint son seuil d'énergie (1000 par défaut), un raid se déclenche automatiquement
+- Le système choisit le territoire le plus anciennement conquis par une autre équipe comme cible
+- L'énergie de l'attaquant est déduite du seuil (l'équipe repart à 0 d'énergie)
+- Si un raid est déjà en cours sur ce territoire, aucun nouveau raid ne se déclenche
+
+**Comment on joue**
+- Les membres des deux équipes reçoivent une notification sur leur dashboard ("Raids actifs")
+- Ils rejoignent la page du raid via WebSocket
+- Le raid se compose de 3 manches : QUIZ → MEMORY → REFLEX (ordre fixe)
+- Chaque joueur répond à chaque manche une seule fois
+- Dès que tous les participants ont répondu, la manche se termine et la suivante commence automatiquement
+
+**Calcul du score**
+- Pour chaque manche, le score individuel est calculé côté serveur (même logique que les défis quotidiens)
+- Le score total de l'équipe = somme des scores de tous ses participants
+- À la fin des 3 manches, l'équipe avec le score total le plus élevé gagne
+
+**Anti-triche**
+- Toute la logique de score est côté serveur
+- Le contenu des manches est envoyé sans la bonne réponse (sauf MEMORY où la séquence EST le contenu à mémoriser)
+- Pour REFLEX, le temps est calculé à partir de l'horloge serveur (`round.startedAt`), pas du temps envoyé par le client
+- WebSocket authentifié par JWT, vérifié en base à chaque connexion
+
+**Résultat d'un raid gagné**
+- Si l'attaquant gagne, le territoire change de propriétaire immédiatement en base
+- La date de capture est mise à jour
+- L'événement est loggé et diffusé aux admins en temps réel
+
+### Duels 1v1 (asynchrones)
+
+**Déclenchement**
+- Un joueur va sur la page "Duel", choisit un adversaire dans l'annuaire des collègues actifs
+- Il sélectionne le type d'épreuve (QUIZ, MEMORY ou REFLEX)
+- Le défi est créé et l'adversaire reçoit une notification (dans sa liste de duels)
+
+**Comment on joue**
+- Chaque joueur joue indépendamment, pas besoin d'être connecté en même temps
+- Pour REFLEX, le joueur doit d'abord cliquer sur "Prêt" qui horodate le début côté serveur
+- Une fois les deux réponses reçues, le duel se termine automatiquement
+
+**Calcul du score**
+- Même logique que les raids, mais en 1v1
+- Le gagnant est celui avec le score le plus élevé (ou égalité)
+
+**Anti-triche**
+- Pour REFLEX, le temps est calculé à partir de l'horodatage serveur posé par le bouton "Prêt"
+- Le client ne peut pas envoyer son propre temps de réaction
+- Polling toutes les 4 secondes pour attendre la réponse de l'adversaire (pas de WebSocket pour les duels)
+
+---
+
+## 4. La mécanique de territoire/équipe
+
+**Comment une équipe gagne de l'énergie**
+- Chaque joueur qui complète un défi quotidien génère de l'énergie pour son équipe
+- Énergie = score du joueur × difficulté du défi
+- L'énergie s'accumule jusqu'à atteindre le seuil configuré (par défaut 1000)
+
+**Comment un raid se déclenche automatiquement**
+- Après chaque soumission de défi, le système vérifie si l'équipe a atteint son seuil
+- Si oui, il cherche un territoire cible (le plus anciennement conquis par une autre équipe)
+- Il crée un raid en statut "PENDING" et déduit l'énergie du seuil
+- Le raid passe en "IN_PROGRESS" dès qu'un premier joueur rejoint
+
+**Ce qui se passe quand un raid est gagné**
+- Si l'attaquant gagne, le `ownerTeamId` du territoire est mis à jour avec l'ID de l'équipe attaquante
+- La date de capture est enregistrée
+- L'événement est loggé dans [ActivityLog](cci:2://file:///h:/office-conquest/office-conquest/frontend/src/app/admin/monitoring/page.tsx:8:0-14:1) et diffusé en temps réel aux admins via WebSocket
+- La carte se met à jour automatiquement pour refléter le nouveau propriétaire
+
+**Initialisation du jeu**
+- L'admin doit d'abord créer des équipes (nom, couleur, seuil d'énergie)
+- L'admin doit créer des territoires (nom, propriétaire initial ou neutre)
+- Sans équipe ni territoire, le jeu est injouable (message d'avertissement dans l'interface admin)
+
+---
+
+## 5. Ce que peut faire un admin
+
+**Gestion des utilisateurs**
+- Lister tous les utilisateurs avec pagination, recherche par email/pseudo, filtre par statut (actif/bloqué)
+- Voir le nombre de tentatives de connexion échouées pour chaque utilisateur
+- Bloquer/débloquer un utilisateur (impossible de se bloquer soi-même ou de bloquer un autre admin)
+- Lors du blocage, toutes les sessions de l'utilisateur sont révoquées automatiquement
+
+**Gestion des équipes**
+- Créer une nouvelle équipe (nom, couleur, seuil d'énergie)
+- Modifier une équipe existante
+- Supprimer une équipe (impossible si elle a encore des membres ou des territoires)
+
+**Gestion des territoires**
+- Créer un territoire (nom, propriétaire initial ou neutre)
+- Modifier un territoire (changer le propriétaire manuellement)
+- Supprimer un territoire (impossible si un raid est en cours dessus)
+
+**Gestion des défis quotidiens**
+- Voir l'historique des défis avec le nombre de tentatives
+- Créer un nouveau défi pour une date donnée (type, titre, contenu, difficulté)
+- Le contenu est validé côté serveur (ex: un QUIZ doit avoir une question, des options et une réponse correcte)
+
+**Monitoring en temps réel**
+- Voir un flux d'activité en direct via WebSocket (connexions, déconnexions, tentatives échouées, raids, duels, blocages)
+- Les événements critiques (ACCOUNT_LOCKED, TOKEN_REUSE_DETECTED, USER_BLOCKED, LOGIN_FAILED) sont affichés en rouge
+- Voir les statistiques globales (utilisateurs totaux/actifs/bloqués, équipes, territoires, raids, duels, défis complétés aujourd'hui)
+- Voir un aperçu des raids récents avec les équipes impliquées
+
+**Vue d'ensemble**
+- Dashboard avec cartes de statistiques
+- Classement des équipes par énergie et nombre de territoires
+
+---
+
+## 6. L'architecture de sécurité
+
+**Authentification**
+- Deux tokens : access token (JWT, 15 min) et refresh token (JWT, 30 jours)
+- Access token stocké en mémoire du navigateur (jamais dans localStorage/sessionStorage pour éviter XSS)
+- Refresh token stocké dans un cookie httpOnly sécurisé (inaccessible via JavaScript)
+- À chaque requête API, l'access token est envoyé dans le header `Authorization: Bearer ...`
+
+**Remember me**
+- Le cookie httpOnly persiste 30 jours
+- Au chargement de la page, le frontend appelle `/auth/refresh` avec ce cookie
+- Le serveur vérifie le refresh token en base, génère un nouvel access token
+- Si le refresh token est révoqué ou expiré, l'utilisateur est redirigé vers la page de connexion
+
+**Rotation des tokens**
+- À chaque appel de `/auth/refresh`, l'ancien refresh token est révoqué et remplacé par un nouveau
+- Un système de "token family" détecte le rejeu : si un token déjà révoqué est réutilisé, toute la lignée est invalidée (vol probable)
+- Cela empêche un attaquant de réutiliser un token volé après rotation
+
+**Anti brute-force**
+- Maximum 5 tentatives échouées avant verrouillage temporaire (15 minutes)
+- Le compteur s'applique à la fois au login et à la réinitialisation de mot de passe (même ressource à protéger)
+- Message d'erreur générique pour ne pas révéler si l'email existe (anti-énumération)
+
+**Réinitialisation de mot de passe**
+- Deux étapes côté UI mais un seul appel atomique côté serveur (email + phrase secrète ensemble)
+- Jamais de confirmation séparée sur l'existence de l'email
+- Le token de reset est généré aléatoirement, seul son hash SHA-256 est stocké en base
+- Le token expire après 15 minutes et est à usage unique
+- Après réinitialisation, toutes les sessions de l'utilisateur sont révoquées
+
+**Calcul côté serveur**
+- Tous les scores sont calculés côté serveur à partir des réponses stockées en base
+- Pour les modes REFLEX, le temps de réaction est calculé à partir de l'horloge serveur, jamais du temps envoyé par le client
+- Le client ne reçoit jamais les bonnes réponses (sauf MEMORY où la séquence est le contenu à mémoriser)
+
+**Protection WebSocket**
+- Chaque connexion WebSocket nécessite un access token valide
+- Pour le monitoring admin, le rôle ADMIN est revérifié en base à chaque connexion (pas seulement dans le JWT)
+- Si un admin perd ses droits, il est immédiatement déconnecté du monitoring
+
+---
+
+## 7. Ce qui est encore fragile ou incomplet
+
+**Fonctionnalités à moitié câblées**
+- **Phrase secrète** : L'interface utilisateur permet de la configurer, mais si un utilisateur ne l'a jamais configurée et oublie son mot de passe, il n'a aucun moyen de récupérer son compte (message dans l'UI : "Contacte un admin pour réinitialiser ton compte"). L'admin n'a pas d'interface pour réinitialiser manuellement un mot de passe.
+
+- **Seed initial** : Le code ne contient pas de script de seed pour créer les équipes et territoires par défaut. L'admin doit tout créer manuellement via l'interface avant que le jeu soit jouable.
+
+**Incohérences potentielles**
+- **Changement d'équipe libre** : Un joueur peut changer d'équipe à tout moment, ce qui pourrait être utilisé stratégiquement (changer d'équipe juste avant un raid pour participer, ou changer après avoir apporté de l'énergie). Il n'y a pas de cooldown ou de restriction.
+
+- **Territoire neutre** : Un territoire sans propriétaire ne peut pas être ciblé par un raid (le système cherche un territoire avec `ownerTeamId != attackerTeamId`). Si tous les territoires sont neutres, les raids ne se déclenchent jamais.
+
+**Limitations techniques**
+- **Duels asynchrones** : Les duels utilisent un polling toutes les 4 secondes au lieu de WebSocket. C'est fonctionnel mais moins réactif que les raids.
+
+- **Banque de questions limitée** : Les raids et duels utilisent une banque de questions codée en dur dans le code backend (3 questions seulement). Il n'y a pas d'interface admin pour gérer cette banque.
+
+- **Pas de notification push** : Les événements (raid déclenché, duel reçu) ne sont visibles que si le joueur est sur la page correspondante. Il n'y a pas de système de notification pour alerter les joueurs en temps réel.
+
+**Sécurité**
+- **Rate limiting** : Seules les routes d'auth ont un rate limiting explicite (5 requêtes par minute). Les autres routes n'ont pas de protection contre les abus.
+
+- **Pas de 2FA** : Il n'y a pas d'authentification à deux facteurs, même pour les comptes admin.

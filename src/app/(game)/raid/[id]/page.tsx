@@ -132,7 +132,7 @@ export default function RaidPage() {
     return (
       <>
         <AppHeader />
-        <main className="mx-auto max-w-2xl px-6 py-10">
+        <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
             {error ?? 'Raid introuvable.'}
           </div>
@@ -146,21 +146,21 @@ export default function RaidPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
         {/* --- En-tête du raid --- */}
-        <div className="mb-8 flex items-center justify-between border border-ink-line px-5 py-4">
-          <div className="text-center">
-            <p className="font-mono text-xs text-parchment-muted">{raid.attackerTeam.name}</p>
+        <div className="mb-8 grid grid-cols-3 items-center gap-1 border border-ink-line px-2 py-4 sm:gap-2 sm:px-5">
+          <div className="min-w-0 text-center">
+            <p className="break-words font-mono text-xs text-parchment-muted">{raid.attackerTeam.name}</p>
             <p className="font-mono text-2xl" style={{ color: raid.attackerTeam.color }}>
               {sumScore(raid.participants, raid.attackerTeam.id)}
             </p>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-parchment-muted">{raid.territory.name}</p>
+          <div className="min-w-0 text-center">
+            <p className="break-words text-xs text-parchment-muted">{raid.territory.name}</p>
             <p className="font-display text-sm text-parchment">VS</p>
           </div>
-          <div className="text-center">
-            <p className="font-mono text-xs text-parchment-muted">{raid.defenderTeam.name}</p>
+          <div className="min-w-0 text-center">
+            <p className="break-words font-mono text-xs text-parchment-muted">{raid.defenderTeam.name}</p>
             <p className="font-mono text-2xl" style={{ color: raid.defenderTeam.color }}>
               {sumScore(raid.participants, raid.defenderTeam.id)}
             </p>
@@ -192,7 +192,7 @@ export default function RaidPage() {
         {/* --- Manche en cours --- */}
         {!ended && currentRound && (
           <section className="border border-ink-line">
-            <div className="flex items-center justify-between border-b border-ink-line px-5 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-line px-4 py-3 sm:px-5">
               <h2 className="font-display text-lg text-parchment">
                 Manche {currentRound.roundNumber} / 3
               </h2>
@@ -200,7 +200,7 @@ export default function RaidPage() {
                 {currentRound.type}
               </span>
             </div>
-            <div className="px-5 py-5">
+            <div className="px-4 py-4 sm:px-5 sm:py-5">
               {hasAnsweredRound ? (
                 <p className="text-sm text-teal">Réponse envoyée — en attente des autres joueurs…</p>
               ) : (
@@ -223,8 +223,8 @@ export default function RaidPage() {
           </h2>
           <div className="divide-y divide-ink-line">
             {raid.participants.map((p) => (
-              <div key={p.userId} className="flex items-center justify-between px-5 py-2.5 text-sm">
-                <span className="text-parchment">{p.user.pseudo}</span>
+              <div key={p.userId} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm sm:px-5">
+                <span className="min-w-0 break-words text-parchment">{p.user.pseudo}</span>
                 <span className="font-mono text-parchment-muted">{p.totalScore}</span>
               </div>
             ))}

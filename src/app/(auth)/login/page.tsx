@@ -46,13 +46,18 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 space-y-1">
-          <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
-            Retour au front
-          </p>
-          <h1 className="text-3xl font-semibold text-parchment">Connexion</h1>
+        <div className="mb-6 space-y-1 sm:mb-8">
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
+              Retour au front
+            </p>
+            <Link href="/" className="text-xs text-parchment-muted hover:text-brass">
+              ← Accueil
+            </Link>
+          </div>
+          <h1 className="text-2xl font-semibold text-parchment sm:text-3xl">Connexion</h1>
           <p className="text-sm text-parchment-muted">
             Ton équipe t&apos;attend sur la carte.
           </p>

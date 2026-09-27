@@ -1,1 +1,1 @@
-un jeu magnifique appelé : La Conquête du Bureau 
+C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affrontent pour conquérir les territoires de leur entreprise en complétant des défis quotidiens, participant à des raids d'équipe en temps réel et en lançant des duels 1v1 éclairs.

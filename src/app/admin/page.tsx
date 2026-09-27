@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../lib/api';
 import { AppHeader } from '../../components/app-header';
 import { AdminGuard } from '../../components/admin-guard';
+import { HelpButton } from '../../components/help-button';
 
 interface TeamRanking {
   id: string;
@@ -57,9 +58,12 @@ function AdminDashboardContent() {
 
   if (error || !stats) {
     return (
-      <main className="mx-auto max-w-4xl px-6 py-10">
-        <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
-      </main>
+      <>
+        <AppHeader />
+        <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+          <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>
+        </main>
+      </>
     );
   }
 
@@ -75,30 +79,45 @@ function AdminDashboardContent() {
   ];
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between">
+    <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
             Salle d&apos;opérations
           </p>
-          <h1 className="text-3xl font-semibold text-parchment">Vue d&apos;ensemble</h1>
+          <h1 className="text-2xl font-semibold text-parchment sm:text-3xl">Vue d&apos;ensemble</h1>
         </div>
-                <div className="flex gap-4 text-sm">
-          <Link href="/admin/users" className="text-parchment-muted hover:text-brass">
-            Utilisateurs
-          </Link>
-                    <Link href="/admin/teams" className="text-parchment-muted hover:text-brass">
-            Équipes
-          </Link>
-          <Link href="/admin/challenges" className="text-parchment-muted hover:text-brass">
-            Défis
-          </Link>
-                    <Link href="/admin/raids" className="text-parchment-muted hover:text-brass">
-            Raids
-          </Link>
-          <Link href="/admin/monitoring" className="text-parchment-muted hover:text-brass">
-            Monitoring
-          </Link>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex flex-wrap gap-3 text-sm sm:gap-4">
+            <Link href="/admin/users" className="text-parchment-muted hover:text-brass">
+              Utilisateurs
+            </Link>
+            <Link href="/admin/teams" className="text-parchment-muted hover:text-brass">
+              Équipes
+            </Link>
+            <Link href="/admin/challenges" className="text-parchment-muted hover:text-brass">
+              Défis
+            </Link>
+            <Link href="/admin/raids" className="text-parchment-muted hover:text-brass">
+              Raids
+            </Link>
+            <Link href="/admin/monitoring" className="text-parchment-muted hover:text-brass">
+              Monitoring
+            </Link>
+          </div>
+          <HelpButton
+            title="Vue d'ensemble admin"
+            content={[
+              "Statistiques globales : utilisateurs, équipes, territoires, raids, duels.",
+              "Classement des équipes par énergie et nombre de territoires.",
+              "Utilise le menu pour accéder aux autres pages d'administration.",
+              "Monitoring : flux d'activité en temps réel.",
+              "Utilisateurs : gérer les comptes, bloquer/débloquer.",
+              "Équipes : créer, modifier, supprimer des équipes.",
+              "Défis : programmer les défis quotidiens.",
+              "Raids : voir l'historique des raids."
+            ]}
+          />
         </div>
       </div>
 

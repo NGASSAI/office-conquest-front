@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { logout } from '../../lib/auth';
 import { useAuthStore } from '../../store/auth-store';
 import { api, getApiErrorMessage } from '../../lib/api';
+import { HelpButton } from '../../components/help-button';
 
 
 
@@ -170,7 +171,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
 
   if (loadError || !profile) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6">
+      <main className="flex min-h-screen items-center justify-center px-4 sm:px-6">
         <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
           {loadError ?? 'Profil introuvable.'}
         </div>
@@ -179,8 +180,8 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-12">
-            <div className="mb-10 flex items-center justify-between">
+    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+      <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <span
             className="flex h-14 w-14 shrink-0 items-center justify-center border text-2xl"
@@ -192,12 +193,24 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
             <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
               Dossier personnel
             </p>
-            <h1 className="text-3xl font-semibold text-parchment">{profile.pseudo}</h1>
+            <h1 className="break-all text-2xl font-semibold text-parchment sm:text-3xl">{profile.pseudo}</h1>
           </div>
         </div>
-        <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
-          ← Retour
-        </Link>
+        <div className="flex items-center gap-4">
+          <HelpButton
+            title="Mon profil"
+            content={[
+              "Avatar : personnalise ton symbole et sa couleur.",
+              "Équipe : tu peux changer d'équipe à tout moment.",
+              "Performance : tes statistiques de jeu.",
+              "Phrase secrète : te permet de récupérer ton compte si tu oublies ton mot de passe.",
+              "Déconnexion : te déconnecte de ta session actuelle."
+            ]}
+          />
+          <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
+            ← Retour
+          </Link>
+        </div>
       </div>
 
       {/* --- Avatar --- */}
@@ -205,7 +218,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
         <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
           Avatar
         </h2>
-        <div className="px-5 py-4">
+        <div className="px-4 py-4 sm:px-5">
           <p className="mb-3 text-xs text-parchment-muted">Symbole</p>
           <div className="mb-4 flex flex-wrap gap-2">
             {AVATAR_EMOJIS.map((emoji) => (
@@ -247,9 +260,9 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
         <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
           Identité
         </h2>
-        <dl className="grid grid-cols-2 gap-y-4 px-5 py-4 text-sm">
+        <dl className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-4 px-4 py-4 text-sm sm:px-5">
           <dt className="text-parchment-muted">Email</dt>
-          <dd className="text-parchment">{profile.email}</dd>
+          <dd className="break-all text-parchment">{profile.email}</dd>
           <dt className="text-parchment-muted">Rôle</dt>
           <dd>
             <span
@@ -272,7 +285,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
         <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
           Équipe
         </h2>
-        <div className="px-5 py-4">
+        <div className="px-4 py-4 sm:px-5">
           <label htmlFor="team" className="mb-1.5 block text-sm text-parchment-muted">
             Tu peux changer d&apos;équipe à tout moment
           </label>
@@ -310,9 +323,9 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
               ['Raids joués', performance.raidsParticipated],
               ['Duels gagnés', performance.duelsWon],
             ].map(([label, value]) => (
-              <div key={label as string} className="bg-ink px-5 py-4">
-                <p className="text-xs text-parchment-muted">{label}</p>
-                <p className="font-mono text-2xl text-parchment">{value}</p>
+              <div key={label as string} className="min-w-0 bg-ink px-3 py-3 sm:px-5 sm:py-4">
+                <p className="wrap-break-word text-xs text-parchment-muted">{label}</p>
+                <p className="wrap-break-word font-mono text-xl text-parchment sm:text-2xl">{value}</p>
               </div>
             ))}
           </div>

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
 import { AdminGuard } from '../../../components/admin-guard';
+import { HelpButton } from '../../../components/help-button';
 
 type ChallengeType = 'QUIZ' | 'RIDDLE' | 'MEMORY' | 'REFLEX';
 
@@ -120,19 +122,39 @@ function AdminChallengesContent() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="mb-1 text-3xl font-semibold text-parchment">Défis quotidiens</h1>
-      <p className="mb-8 text-sm text-parchment-muted">
-        Un défi par jour maximum — sans ça, le dashboard des joueurs reste vide.
-      </p>
+    <main className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 text-3xl font-semibold text-parchment">Défis quotidiens</h1>
+          <p className="text-sm text-parchment-muted">
+            Un défi par jour maximum — sans ça, le dashboard des joueurs reste vide.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/admin" className="text-sm text-parchment-muted hover:text-brass">
+            ← Retour
+          </Link>
+          <HelpButton
+            title="Défis quotidiens"
+            content={[
+              "Crée des défis pour chaque date pour que les joueurs aient un défi quotidien.",
+              "Types disponibles : Quiz (question à choix), Riddle (énigme texte), Memory (séquence couleurs), Reflex (temps de réaction).",
+              "La difficulté (1-5) multiplie l'énergie gagnée par les joueurs.",
+              "Pour Quiz : la bonne réponse doit correspondre exactement à une option.",
+              "Pour Memory : clique sur les couleurs dans l'ordre pour créer la séquence.",
+              "Pour Reflex : aucun contenu requis, le score se base sur le temps de réaction."
+            ]}
+          />
+        </div>
+      </div>
 
       {/* --- Formulaire de création --- */}
       <section className="mb-10 border border-ink-line">
         <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
           Créer un défi
         </h2>
-        <form onSubmit={onSubmit} className="space-y-4 px-5 py-5">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={onSubmit} className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm text-parchment-muted">Date</label>
               <input
@@ -157,7 +179,7 @@ function AdminChallengesContent() {
 
           <div>
             <label className="mb-1.5 block text-sm text-parchment-muted">Type</label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {(['QUIZ', 'RIDDLE', 'MEMORY', 'REFLEX'] as ChallengeType[]).map((t) => (
                 <button
                   key={t}

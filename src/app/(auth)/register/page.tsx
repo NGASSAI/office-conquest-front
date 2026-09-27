@@ -82,13 +82,13 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
-        <div className="mb-8 space-y-1">
+        <div className="mb-6 space-y-1 sm:mb-8">
           <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
             Étape 1 — Accès
           </p>
-          <h1 className="text-3xl font-semibold text-parchment">Rejoindre la conquête</h1>
+          <h1 className="text-2xl font-semibold text-parchment sm:text-3xl">Rejoindre la conquête</h1>
           <p className="text-sm text-parchment-muted">
             Une inscription, ensuite plus rien à retaper.
           </p>

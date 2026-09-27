@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
 import { AdminGuard } from '../../../components/admin-guard';
+import { HelpButton } from '../../../components/help-button';
 
 interface Team {
   id: string;
@@ -57,11 +59,30 @@ function AdminTeamsContent() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="mb-1 text-3xl font-semibold text-parchment">Équipes &amp; Territoires</h1>
-      <p className="mb-8 text-sm text-parchment-muted">
-        Sans équipe ni territoire configurés, le jeu est injouable.
-      </p>
+    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 text-3xl font-semibold text-parchment">Équipes et territoires</h1>
+          <p className="text-sm text-parchment-muted">
+            Créer, modifier et supprimer les équipes et les territoires du jeu.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/admin" className="text-sm text-parchment-muted hover:text-brass">
+            ← Retour
+          </Link>
+          <HelpButton
+            title="Équipes et territoires"
+            content={[
+              "Équipes : définir le nom, la couleur et le seuil d'énergie pour déclencher les raids.",
+              "Territoires : définir le nom et le propriétaire initial.",
+              "Une équipe ne peut pas être supprimée si elle a encore des membres ou des territoires.",
+              "Un territoire ne peut pas être supprimé si un raid est en cours dessus.",
+              "Le seuil d'énergie par défaut est 1000.",
+            ]}
+          />
+        </div>
+      </div>
 
       {error && (
         <div role="alert" className="mb-6 border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -186,21 +207,27 @@ function TeamsSection({
               saving={saving}
             />
           ) : (
-            <div key={team.id} className="flex items-center gap-4 px-5 py-3 text-sm">
-              <span className="h-3 w-3 shrink-0" style={{ backgroundColor: team.color }} />
-              <span className="flex-1 text-parchment">{team.name}</span>
-              <span className="font-mono text-xs text-parchment-muted">
+            <div key={team.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-2 px-3 py-3 text-sm sm:flex sm:items-center sm:gap-4 sm:px-5">
+              <div className="flex min-w-0 items-center gap-3 sm:flex-1">
+                <span className="h-3 w-3 shrink-0" style={{ backgroundColor: team.color }} />
+                <span className="min-w-0 wrap-break-word text-parchment">{team.name}</span>
+              </div>
+              <span className="col-span-2 font-mono text-xs text-parchment-muted sm:col-span-1">
+                <span className="mr-2 font-sans text-[10px] uppercase text-parchment-muted sm:hidden">Membres / territoires</span>
                 {team._count.members} membre(s) · {team._count.territories} territoire(s)
               </span>
-              <span className="font-mono text-xs text-brass">
+              <span className="col-start-2 row-start-1 font-mono text-xs text-brass sm:col-auto sm:row-auto">
+                <span className="mr-2 font-sans text-[10px] uppercase text-parchment-muted sm:hidden">Énergie</span>
                 {team.energy}/{team.energyThreshold}
               </span>
-              <button onClick={() => startEdit(team)} className="text-xs text-parchment-muted hover:text-brass">
-                Modifier
-              </button>
-              <button onClick={() => remove(team.id)} className="text-xs text-parchment-muted hover:text-danger">
-                Suppr.
-              </button>
+              <div className="col-span-2 flex gap-4 sm:ml-auto sm:col-span-1">
+                <button onClick={() => startEdit(team)} className="text-xs text-parchment-muted hover:text-brass">
+                  Modifier
+                </button>
+                <button onClick={() => remove(team.id)} className="text-xs text-parchment-muted hover:text-danger">
+                  Suppr.
+                </button>
+              </div>
             </div>
           ),
         )}
@@ -234,12 +261,12 @@ function TeamForm({
   saving: boolean;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_100px_120px_auto] items-center gap-3 border-b border-ink-line bg-ink-panel px-5 py-3">
+    <div className="grid grid-cols-2 items-center gap-3 border-b border-ink-line bg-ink-panel px-3 py-3 sm:grid-cols-[1fr_100px_120px_auto] sm:px-5">
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Nom de l'équipe"
-        className="border border-ink-line bg-ink px-2 py-1.5 text-sm text-parchment focus:border-brass"
+        className="col-span-2 border border-ink-line bg-ink px-2 py-1.5 text-sm text-parchment focus:border-brass sm:col-span-1"
       />
       <input
         type="color"
@@ -332,7 +359,7 @@ function TerritoriesSection({
         Territoires
       </h2>
 
-      <div className="flex gap-3 border-b border-ink-line px-5 py-3">
+      <div className="flex flex-col gap-3 border-b border-ink-line px-3 py-3 sm:flex-row sm:px-5">
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -362,12 +389,15 @@ function TerritoriesSection({
 
       <div className="divide-y divide-ink-line">
         {territories.map((t) => (
-          <div key={t.id} className="flex items-center gap-3 px-5 py-3 text-sm">
-            <span className="flex-1 text-parchment">{t.name}</span>
+          <div key={t.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-3 py-3 text-sm sm:flex sm:gap-3 sm:px-5">
+            <span className="min-w-0 wrap-break-word text-parchment sm:flex-1">{t.name}</span>
+            <button onClick={() => remove(t.id)} className="justify-self-end text-xs text-parchment-muted hover:text-danger sm:order-3">
+              Suppr.
+            </button>
             <select
               value={t.ownerTeam?.id ?? ''}
               onChange={(e) => changeOwner(t.id, e.target.value)}
-              className="border border-ink-line bg-ink-panel px-2 py-1 text-xs text-parchment focus:border-brass"
+              className="col-span-2 w-full border border-ink-line bg-ink-panel px-2 py-1 text-xs text-parchment focus:border-brass sm:order-2 sm:col-span-1 sm:w-auto"
             >
               <option value="">Neutre</option>
               {teams.map((team) => (
@@ -376,9 +406,6 @@ function TerritoriesSection({
                 </option>
               ))}
             </select>
-            <button onClick={() => remove(t.id)} className="text-xs text-parchment-muted hover:text-danger">
-              Suppr.
-            </button>
           </div>
         ))}
         {territories.length === 0 && (

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../lib/api';
 import { AppHeader } from '../../components/app-header';
+import { HelpButton } from '../../components/help-button';
 import { useAuthStore } from '../../store/auth-store';
 
 interface LeaderboardEntry {
@@ -43,9 +45,27 @@ export default function LeaderboardPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="mb-1 text-3xl font-semibold text-parchment">Classement individuel</h1>
-        <p className="mb-8 text-sm text-parchment-muted">Les 20 joueurs les plus actifs.</p>
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="mb-1 text-3xl font-semibold text-parchment">Classement individuel</h1>
+            <p className="text-sm text-parchment-muted">Les 20 joueurs les plus actifs.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
+              ← Retour
+            </Link>
+            <HelpButton
+              title="Le classement"
+              content={[
+                "Le classement est basé sur l'énergie totale apportée à ton équipe.",
+                "L'énergie est gagnée en complétant les défis quotidiens.",
+                "Plus tu joues aux défis, plus tu montes dans le classement.",
+                "Les duels gagnés sont aussi pris en compte."
+              ]}
+            />
+          </div>
+        </div>
 
         {error && (
           <div role="alert" className="mb-6 border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -70,7 +90,7 @@ export default function LeaderboardPage() {
                 return (
                   <div
                     key={entry.userId}
-                    className={`flex items-center gap-4 px-5 py-3 text-sm ${isMe ? 'bg-brass/5' : ''}`}
+                    className={`flex items-center gap-3 px-3 py-3 text-sm sm:gap-4 sm:px-5 ${isMe ? 'bg-brass/5' : ''}`}
                   >
                     <span className="w-6 font-mono text-xs text-parchment-muted">
                       {MEDALS[index] ?? `#${index + 1}`}
@@ -92,7 +112,7 @@ export default function LeaderboardPage() {
                         </p>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="max-w-[45%] text-right">
                       <p className="font-mono text-brass">{entry.totalEnergyContributed}</p>
                       <p className="font-mono text-xs text-parchment-muted">
                         {entry.challengesCompleted} défi(s) · {entry.duelsWon} duel(s) gagné(s)

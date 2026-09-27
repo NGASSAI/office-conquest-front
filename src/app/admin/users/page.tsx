@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
 import { AdminGuard } from '../../../components/admin-guard';
+import { HelpButton } from '../../../components/help-button';
 
 interface AdminUser {
   id: string;
@@ -75,12 +77,33 @@ function AdminUsersContent() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-10">
-      <h1 className="mb-1 text-3xl font-semibold text-parchment">Utilisateurs</h1>
-      <p className="mb-8 text-sm text-parchment-muted">{total} compte(s) au total.</p>
-
+    <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1 text-3xl font-semibold text-parchment">Gestion des utilisateurs</h1>
+          <p className="text-sm text-parchment-muted">
+            Liste, recherche et blocage des comptes.
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <Link href="/admin" className="text-sm text-parchment-muted hover:text-brass">
+            ← Retour
+          </Link>
+          <HelpButton
+            title="Gestion des utilisateurs"
+            content={[
+              "Recherche : filtre par email ou pseudo.",
+              "Statut : filtre par actif/bloqué.",
+              "Blocage : empêche l'utilisateur de se connecter (révoque toutes ses sessions).",
+              "Déblocage : réactive le compte.",
+              "Impossible de bloquer un autre admin ou soi-même.",
+              "Le compteur d'échecs montre les tentatives de connexion échouées."
+            ]}
+          />
+        </div>
+      </div>
       {/* --- Filtres --- */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row">
         <input
           type="text"
           value={search}
@@ -97,7 +120,7 @@ function AdminUsersContent() {
             setPage(1);
             setStatus(e.target.value as typeof status);
           }}
-          className="border border-ink-line bg-ink-panel px-3 py-2 text-sm text-parchment focus:border-brass"
+          className="w-full border border-ink-line bg-ink-panel px-3 py-2 text-sm text-parchment focus:border-brass sm:w-auto"
         >
           <option value="">Tous les statuts</option>
           <option value="ACTIVE">Actifs</option>
@@ -113,7 +136,7 @@ function AdminUsersContent() {
 
       {/* --- Table --- */}
       <div className="border border-ink-line">
-        <div className="grid grid-cols-[1fr_100px_100px_100px] gap-3 border-b border-ink-line px-5 py-3 font-mono text-xs uppercase text-parchment-muted">
+        <div className="hidden grid-cols-[minmax(0,1fr)_100px_100px_100px] gap-3 border-b border-ink-line px-5 py-3 font-mono text-xs uppercase text-parchment-muted sm:grid">
           <span>Utilisateur</span>
           <span>Statut</span>
           <span>Échecs</span>
@@ -129,26 +152,29 @@ function AdminUsersContent() {
         ) : (
           <div className="divide-y divide-ink-line">
             {users.map((user) => (
-              <div key={user.id} className="grid grid-cols-[1fr_100px_100px_100px] items-center gap-3 px-5 py-3 text-sm">
-                <div>
+              <div key={user.id} className="grid grid-cols-2 gap-x-3 gap-y-3 px-3 py-3 text-sm sm:grid-cols-[minmax(0,1fr)_100px_100px_100px] sm:items-center sm:gap-3 sm:px-5">
+                <div className="col-span-2 min-w-0 sm:col-span-1">
                   <p className="text-parchment">{user.pseudo}</p>
-                  <p className="text-xs text-parchment-muted">{user.email}</p>
+                  <p className="break-all text-xs text-parchment-muted">{user.email}</p>
                 </div>
                 <span className={user.status === 'BLOCKED' ? 'text-danger' : 'text-teal'}>
+                  <span className="mb-0.5 block font-mono text-[10px] uppercase text-parchment-muted sm:hidden">Statut</span>
                   {user.status === 'BLOCKED' ? 'Bloqué' : 'Actif'}
                 </span>
                 <span className="font-mono text-xs text-parchment-muted">
+                  <span className="mb-0.5 block font-sans text-[10px] uppercase text-parchment-muted sm:hidden">Échecs</span>
                   {user.failedLoginAttempts > 0 ? user.failedLoginAttempts : '—'}
                 </span>
                 <button
                   onClick={() => toggleStatus(user)}
                   disabled={actioningId === user.id || user.role === 'ADMIN'}
-                  className={`border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`justify-self-start border px-3 py-1.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 sm:justify-self-auto ${
                     user.status === 'ACTIVE'
                       ? 'border-danger text-danger hover:bg-danger/10'
                       : 'border-teal text-teal hover:bg-teal/10'
                   }`}
                 >
+                  <span className="sm:hidden">Action</span>
                   {actioningId === user.id ? '…' : user.status === 'ACTIVE' ? 'Bloquer' : 'Débloquer'}
                 </button>
               </div>

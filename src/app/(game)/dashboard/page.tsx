@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
+import { HelpButton } from '../../../components/help-button';
 import { RoundGame } from '../../../components/round-game';
 
 interface TeamSummary {
@@ -100,7 +103,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
+      <main className="flex min-h-screen items-center justify-center px-4">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-ink-line border-t-brass" />
       </main>
     );
@@ -109,7 +112,7 @@ export default function DashboardPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
         {loadError && (
           <div role="alert" className="mb-6 border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
             {loadError}
@@ -117,7 +120,7 @@ export default function DashboardPage() {
         )}
 
         {!team && (
-          <div className="mb-8 border border-brass bg-brass/10 px-4 py-3 text-sm text-parchment">
+          <div className="mb-6 border border-brass bg-brass/10 px-4 py-3 text-sm text-parchment">
             Tu n&apos;as pas encore rejoint d&apos;équipe.{' '}
             <Link href="/profile" className="text-brass hover:underline">
               Choisis-en une dans ton profil
@@ -129,10 +132,24 @@ export default function DashboardPage() {
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
           {/* --- Colonne principale : défi du jour --- */}
           <section className="border border-ink-line">
-            <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
-              Défi du jour
-            </h2>
-            <div className="px-5 py-5">
+            <div className="flex items-center justify-between border-b border-ink-line px-4 py-3 sm:px-5">
+              <h2 className="font-display text-base text-parchment sm:text-lg">
+                Défi du jour
+              </h2>
+              <HelpButton
+                title="Comment ça marche ?"
+                content={[
+                  "Chaque jour, un nouveau défi est disponible.",
+                  "Tu ne peux le jouer qu'une seule fois par jour.",
+                  "Ton score est converti en énergie pour ton équipe.",
+                  "Quiz et énigme : réponse correcte = points selon rapidité.",
+                  "Mémoire : reproduis la séquence de couleurs.",
+                  "Réflexe : clique le plus vite possible quand le bouton apparaît.",
+                  "Quand ton équipe atteint le seuil d'énergie, un raid se déclenche automatiquement !"
+                ]}
+              />
+            </div>
+            <div className="px-4 py-4 sm:px-5 sm:py-5">
               {!challenge && (
                 <p className="text-sm text-parchment-muted">
                   Pas de défi disponible aujourd&apos;hui — reviens demain.
@@ -171,10 +188,10 @@ export default function DashboardPage() {
           <aside className="space-y-6">
             {team && (
               <section className="border border-ink-line">
-                <h2 className="border-b border-ink-line px-5 py-3 font-display text-base text-parchment">
+                <h2 className="border-b border-ink-line px-4 py-3 font-display text-sm text-parchment sm:px-5 sm:text-base">
                   {team.name}
                 </h2>
-                <div className="px-5 py-4">
+                <div className="px-4 py-3 sm:px-5 sm:py-4">
                   <div className="mb-1.5 flex justify-between font-mono text-xs text-parchment-muted">
                     <span>Énergie</span>
                     <span>
@@ -197,9 +214,21 @@ export default function DashboardPage() {
             )}
 
             <section className="border border-ink-line">
-              <h2 className="border-b border-ink-line px-5 py-3 font-display text-base text-parchment">
-                Raids actifs
-              </h2>
+              <div className="flex items-center justify-between border-b border-ink-line px-4 py-3 sm:px-5">
+                <h2 className="font-display text-sm text-parchment sm:text-base">
+                  Raids actifs
+                </h2>
+                <HelpButton
+                  title="Les raids"
+                  content={[
+                    "Un raid se déclenche quand une équipe atteint son seuil d'énergie.",
+                    "Les membres des deux équipes peuvent rejoindre le raid.",
+                    "Le raid se compose de 3 manches : Quiz, Mémoire, Réflexe.",
+                    "Chaque joueur répond une fois par manche.",
+                    "L'équipe avec le score total le plus élevé gagne le territoire."
+                  ]}
+                />
+              </div>
               <div className="divide-y divide-ink-line">
                 {raids.length === 0 && (
                   <p className="px-5 py-4 text-sm text-parchment-muted">Aucun raid en cours.</p>

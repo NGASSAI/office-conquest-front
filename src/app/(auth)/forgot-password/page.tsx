@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-12">
+    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 space-y-1">
           <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Repères d'étapes — purement visuels, la vraie vérification est atomique côté serveur */}
-        <div className="mb-8 flex items-center gap-2 font-mono text-xs text-parchment-muted">
+        <div className="mb-8 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-parchment-muted">
           <span className={step === 'email' ? 'text-brass' : ''}>1. Email</span>
           <span>—</span>
           <span className={step === 'phrase' ? 'text-brass' : ''}>2. Phrase secrète</span>

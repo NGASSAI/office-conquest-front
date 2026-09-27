@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
+import { HelpButton } from '../../../components/help-button';
 
 interface Colleague {
   id: string;
@@ -77,9 +78,29 @@ export default function DuelLobbyPage() {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-2xl px-6 py-10">
-        <h1 className="mb-1 text-3xl font-semibold text-parchment">Duel éclair</h1>
-        <p className="mb-8 text-sm text-parchment-muted">Défie un collègue en 1 contre 1.</p>
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="mb-1 text-3xl font-semibold text-parchment">Duel éclair</h1>
+            <p className="text-sm text-parchment-muted">Défie un collègue en 1 contre 1.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
+              ← Retour
+            </Link>
+            <HelpButton
+              title="Les duels"
+              content={[
+                "Choisis un adversaire et un type d'épreuve.",
+                "Quiz : question à choix multiples.",
+                "Mémoire : reproduis la séquence de couleurs.",
+                "Réflexe : clique le plus vite possible.",
+                "Chaque joueur joue indépendamment, pas besoin d'être connecté en même temps.",
+                "Le gagnant est celui avec le score le plus élevé."
+              ]}
+            />
+          </div>
+        </div>
 
         {error && (
           <div role="alert" className="mb-6 border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -92,7 +113,7 @@ export default function DuelLobbyPage() {
           <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
             Défier un collègue
           </h2>
-          <div className="space-y-4 px-5 py-5">
+          <div className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
             <div>
               <label className="mb-1.5 block text-sm text-parchment-muted">Adversaire</label>
               <select
@@ -149,9 +170,9 @@ export default function DuelLobbyPage() {
                 <Link
                   key={d.id}
                   href={`/duel/${d.id}`}
-                  className="flex items-center justify-between px-5 py-3 text-sm transition hover:bg-ink-panel"
+                  className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 text-sm transition hover:bg-ink-panel sm:px-5"
                 >
-                  <span className="text-parchment">
+                  <span className="min-w-0 break-words text-parchment">
                     {d.player1.pseudo} vs {d.player2.pseudo}
                   </span>
                   <span className="font-mono text-xs text-parchment-muted">{d.type}</span>
@@ -169,8 +190,8 @@ export default function DuelLobbyPage() {
             </h2>
             <div className="divide-y divide-ink-line">
               {completedDuels.map((d) => (
-                <div key={d.id} className="flex items-center justify-between px-5 py-2.5 text-sm">
-                  <span className="text-parchment-muted">
+                <div key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm sm:px-5">
+                  <span className="min-w-0 break-words text-parchment-muted">
                     {d.player1.pseudo} vs {d.player2.pseudo}
                   </span>
                   <span className="font-mono text-xs text-brass">
