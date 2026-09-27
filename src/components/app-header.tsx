@@ -8,6 +8,7 @@ import { logout } from '../lib/auth';
 const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/map', label: 'Carte' },
+  { href: '/duel', label: 'Duel' },
   { href: '/profile', label: 'Profil' },
 ];
 

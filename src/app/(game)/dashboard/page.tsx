@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
+import { RoundGame } from '../../../components/round-game';
 
 interface TeamSummary {
   id: string;
@@ -297,11 +298,21 @@ function ChallengeForm({
     );
   }
 
-  // MEMORY et REFLEX sont des mini-jeux interactifs à part entière (grille de mémoire, chrono de réflexe)
-  // — même moteur que les manches de raid, qu'on construira comme composant partagé à l'étape suivante.
-  return (
-    <p className="text-sm text-parchment-muted">
-      Ce type de défi ({challenge.type}) a une interface dédiée à venir. Reviens bientôt.
-    </p>
-  );
+  // MEMORY et REFLEX réutilisent le même moteur de mini-jeu que les manches de raid
+  if (challenge.type === 'MEMORY' || challenge.type === 'REFLEX') {
+    return (
+      <div>
+        <RoundGame
+          roundId={challenge.id}
+          type={challenge.type}
+          content={challenge.content}
+          onAnswer={onSubmit}
+          disabled={submitting}
+        />
+        {error && <p className="mt-3 text-xs text-danger">{error}</p>}
+      </div>
+    );
+  }
+
+  return null;
 }
