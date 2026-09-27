@@ -83,9 +83,18 @@ function AdminDashboardContent() {
           </p>
           <h1 className="text-3xl font-semibold text-parchment">Vue d&apos;ensemble</h1>
         </div>
-        <div className="flex gap-4 text-sm">
+                <div className="flex gap-4 text-sm">
           <Link href="/admin/users" className="text-parchment-muted hover:text-brass">
             Utilisateurs
+          </Link>
+                    <Link href="/admin/teams" className="text-parchment-muted hover:text-brass">
+            Équipes
+          </Link>
+          <Link href="/admin/challenges" className="text-parchment-muted hover:text-brass">
+            Défis
+          </Link>
+                    <Link href="/admin/raids" className="text-parchment-muted hover:text-brass">
+            Raids
           </Link>
           <Link href="/admin/monitoring" className="text-parchment-muted hover:text-brass">
             Monitoring

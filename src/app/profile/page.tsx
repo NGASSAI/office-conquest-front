@@ -6,9 +6,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
-import { api, getApiErrorMessage } from '../../lib/api';
 import { logout } from '../../lib/auth';
 import { useAuthStore } from '../../store/auth-store';
+import { api, getApiErrorMessage } from '../../lib/api';
+
+
+
+
 
 interface Team {
   id: string;
@@ -43,6 +47,14 @@ const secretPhraseSchema = z.object({
   secretPhrase: z.string().min(6, '6 caractères minimum').max(100, '100 caractères maximum'),
 });
 type SecretPhraseValues = z.infer<typeof secretPhraseSchema>;
+function parseAvatar(raw: string | null): { emoji: string; color: string } | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return '—';
@@ -52,7 +64,8 @@ function formatDate(iso: string | null) {
 export default function ProfilePage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
-
+const AVATAR_EMOJIS = ['🦊', '🐺', '🦉', '🐝', '🦅', '🐉', '🦁', '🐯', '🐨', '🦄', '🐧', '🦈'];
+const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#EDEAE0'];
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [performance, setPerformance] = useState<Performance | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -61,6 +74,11 @@ export default function ProfilePage() {
 
   const [teamChangeStatus, setTeamChangeStatus] = useState<'idle' | 'saving'>('idle');
   const [teamChangeError, setTeamChangeError] = useState<string | null>(null);
+  const currentAvatar = profile ? parseAvatar(profile.avatar) : null;
+  const [avatarEmoji, setAvatarEmoji] = useState(currentAvatar?.emoji ?? AVATAR_EMOJIS[0]);
+  const [avatarColor, setAvatarColor] = useState(currentAvatar?.color ?? AVATAR_COLORS[0]);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const [phraseStatus, setPhraseStatus] = useState<'idle' | 'success'>('idle');
   const [phraseError, setPhraseError] = useState<string | null>(null);
@@ -71,7 +89,7 @@ export default function ProfilePage() {
     formState: { errors: phraseErrors, isSubmitting: isPhraseSubmitting },
   } = useForm<SecretPhraseValues>({ resolver: zodResolver(secretPhraseSchema) });
 
-  useEffect(() => {
+    useEffect(() => {
     async function load() {
       try {
         const [profileRes, perfRes, teamsRes] = await Promise.all([
@@ -80,6 +98,11 @@ export default function ProfilePage() {
           api.get<Team[]>('/teams'),
         ]);
         setProfile(profileRes.data);
+        const savedAvatar = parseAvatar(profileRes.data.avatar);
+        if (savedAvatar) {
+          setAvatarEmoji(savedAvatar.emoji);
+          setAvatarColor(savedAvatar.color);
+        }
         setPerformance(perfRes.data);
         setTeams(teamsRes.data);
       } catch (error) {
@@ -118,6 +141,18 @@ export default function ProfilePage() {
       setPhraseError(getApiErrorMessage(error, 'La mise à jour a échoué.'));
     }
   }
+  async function onSaveAvatar() {
+    setAvatarSaving(true);
+    setAvatarError(null);
+    try {
+      const { data } = await api.patch('/users/me/avatar', { emoji: avatarEmoji, color: avatarColor });
+      setProfile((p) => (p ? { ...p, avatar: data.avatar } : p));
+    } catch (error) {
+      setAvatarError(getApiErrorMessage(error, "L'avatar n'a pas pu être enregistré."));
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   async function onLogout() {
     await logout();
@@ -145,17 +180,67 @@ export default function ProfilePage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-12">
-      <div className="mb-10 flex items-center justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
-            Dossier personnel
-          </p>
-          <h1 className="text-3xl font-semibold text-parchment">{profile.pseudo}</h1>
+            <div className="mb-10 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <span
+            className="flex h-14 w-14 shrink-0 items-center justify-center border text-2xl"
+            style={{ borderColor: avatarColor, backgroundColor: `${avatarColor}26` }}
+          >
+            {avatarEmoji}
+          </span>
+          <div>
+            <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
+              Dossier personnel
+            </p>
+            <h1 className="text-3xl font-semibold text-parchment">{profile.pseudo}</h1>
+          </div>
         </div>
         <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">
           ← Retour
         </Link>
       </div>
+
+      {/* --- Avatar --- */}
+      <section className="mb-8 border border-ink-line">
+        <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
+          Avatar
+        </h2>
+        <div className="px-5 py-4">
+          <p className="mb-3 text-xs text-parchment-muted">Symbole</p>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {AVATAR_EMOJIS.map((emoji) => (
+              <button
+                key={emoji}
+                onClick={() => setAvatarEmoji(emoji)}
+                className={`flex h-10 w-10 items-center justify-center border text-lg transition ${
+                  avatarEmoji === emoji ? 'border-brass' : 'border-ink-line hover:border-parchment-muted'
+                }`}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+          <p className="mb-3 text-xs text-parchment-muted">Couleur</p>
+          <div className="mb-4 flex gap-2">
+            {AVATAR_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => setAvatarColor(c)}
+                className={`h-8 w-8 border-2 transition ${avatarColor === c ? 'border-parchment' : 'border-transparent'}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          {avatarError && <p className="mb-3 text-xs text-danger">{avatarError}</p>}
+          <button
+            onClick={onSaveAvatar}
+            disabled={avatarSaving}
+            className="border border-brass bg-brass px-4 py-2 text-sm font-medium text-ink transition hover:bg-transparent hover:text-brass disabled:opacity-50"
+          >
+            {avatarSaving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </section>
 
       {/* --- Identité --- */}
       <section className="mb-8 border border-ink-line">

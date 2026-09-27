@@ -19,9 +19,42 @@ interface TeamRanking {
   _count: { members: number; territories: number };
 }
 
+// Disposition fixe façon plan d'étage — mappée par nom de territoire (ceux du seed).
+// Un territoire dont le nom n'est pas dans cette liste tombe automatiquement dans une grille de secours.
+const ROOM_LAYOUT: Record<string, { x: number; y: number; w: number; h: number }> = {
+  'Open Space Nord': { x: 20, y: 20, w: 220, h: 140 },
+  'Salle Everest': { x: 260, y: 20, w: 140, h: 140 },
+  Cafétéria: { x: 420, y: 20, w: 140, h: 140 },
+  'Salle Serveurs': { x: 580, y: 20, w: 200, h: 140 },
+  Terrasse: { x: 20, y: 180, w: 180, h: 120 },
+  'Salle K2': { x: 220, y: 180, w: 140, h: 120 },
+  Accueil: { x: 380, y: 180, w: 180, h: 120 },
+  'Open Space Sud': { x: 580, y: 180, w: 200, h: 120 },
+};
+const FALLBACK_COLS = 4;
+const FALLBACK_ROOM_SIZE = 180;
+
+function getRoomRect(name: string, index: number) {
+  if (ROOM_LAYOUT[name]) return ROOM_LAYOUT[name];
+  const col = index % FALLBACK_COLS;
+  const row = Math.floor(index / FALLBACK_COLS);
+  return {
+    x: 20 + col * (FALLBACK_ROOM_SIZE + 16),
+    y: 320 + row * (FALLBACK_ROOM_SIZE + 16),
+    w: FALLBACK_ROOM_SIZE,
+    h: FALLBACK_ROOM_SIZE,
+  };
+}
+
+function formatDate(iso: string | null) {
+  if (!iso) return null;
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+}
+
 export default function MapPage() {
   const [territories, setTerritories] = useState<Territory[]>([]);
   const [teams, setTeams] = useState<TeamRanking[]>([]);
+  const [selected, setSelected] = useState<Territory | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -51,13 +84,21 @@ export default function MapPage() {
     );
   }
 
+  const svgHeight = Math.max(
+    320,
+    ...territories.map((t, i) => {
+      const r = getRoomRect(t.name, i);
+      return r.y + r.h + 20;
+    }),
+  );
+
   return (
     <>
       <AppHeader />
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main className="mx-auto max-w-5xl px-6 py-10">
         <h1 className="mb-1 text-3xl font-semibold text-parchment">Carte du bureau</h1>
         <p className="mb-8 text-sm text-parchment-muted">
-          Coordonnées de conquête — {territories.length} territoires en jeu.
+          Plan de conquête — {territories.length} territoires en jeu.
         </p>
 
         {loadError && (
@@ -66,42 +107,108 @@ export default function MapPage() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-[1fr_260px]">
-          {/* --- Territoires, façon dossier de coordonnées --- */}
-          <section className="border border-ink-line">
-            <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
-              Territoires
-            </h2>
-            <div className="divide-y divide-ink-line">
+        <div className="grid gap-6 lg:grid-cols-[1fr_260px]">
+          {/* --- Plan SVG interactif --- */}
+          <section className="border border-ink-line p-4">
+            <svg
+              viewBox={`0 0 800 ${svgHeight}`}
+              className="w-full"
+              role="img"
+              aria-label="Plan des territoires du bureau"
+            >
               {territories.map((territory, index) => {
-                // Coordonnée façon carte d'état-major (A1, B2...) dérivée de la position dans la liste
-                const coord = `${String.fromCharCode(65 + Math.floor(index / 5))}${(index % 5) + 1}`;
+                const rect = getRoomRect(territory.name, index);
+                const color = territory.ownerTeam?.color ?? '#26314A';
+                const isSelected = selected?.id === territory.id;
                 return (
-                  <div key={territory.id} className="flex items-center justify-between px-5 py-4">
-                    <div className="flex items-center gap-4">
-                      <span className="font-mono text-xs text-parchment-muted">{coord}</span>
-                      <span className="text-parchment">{territory.name}</span>
-                    </div>
-                    {territory.ownerTeam ? (
-                      <span
-                        className="border px-2.5 py-1 font-mono text-xs"
-                        style={{
-                          borderColor: territory.ownerTeam.color,
-                          color: territory.ownerTeam.color,
-                        }}
+                  <g
+                    key={territory.id}
+                    onClick={() => setSelected(territory)}
+                    className="cursor-pointer"
+                    tabIndex={0}
+                    role="button"
+                    aria-label={`${territory.name} — ${territory.ownerTeam?.name ?? 'territoire neutre'}`}
+                    onKeyDown={(e) => e.key === 'Enter' && setSelected(territory)}
+                  >
+                    <rect
+                      x={rect.x}
+                      y={rect.y}
+                      width={rect.w}
+                      height={rect.h}
+                      fill={territory.ownerTeam ? `${color}26` : 'transparent'}
+                      stroke={color}
+                      strokeWidth={isSelected ? 3 : 1.5}
+                      className="transition-all"
+                    />
+                    <text
+                      x={rect.x + 12}
+                      y={rect.y + 24}
+                      fill="#EDEAE0"
+                      fontSize="13"
+                      fontFamily="var(--font-space-grotesk)"
+                    >
+                      {territory.name}
+                    </text>
+                    {territory.ownerTeam && (
+                      <text
+                        x={rect.x + 12}
+                        y={rect.y + rect.h - 14}
+                        fill={color}
+                        fontSize="11"
+                        fontFamily="var(--font-jetbrains-mono)"
+                        className="uppercase"
                       >
                         {territory.ownerTeam.name}
-                      </span>
-                    ) : (
-                      <span className="font-mono text-xs text-parchment-muted">Neutre</span>
+                      </text>
                     )}
-                  </div>
+                  </g>
                 );
               })}
-              {territories.length === 0 && (
-                <p className="px-5 py-4 text-sm text-parchment-muted">Aucun territoire configuré.</p>
-              )}
-            </div>
+            </svg>
+
+                        {/* --- Détail du territoire sélectionné --- */}
+            {selected && (
+              <div className="mt-4 border-t border-ink-line pt-4">
+                <p className="mb-1 font-display text-lg text-parchment">{selected.name}</p>
+                {selected.ownerTeam ? (
+                  (() => {
+                    const owningTeam = teams.find((t) => t.id === selected.ownerTeam!.id);
+                    return (
+                      <div>
+                        <p className="mb-3 text-sm text-parchment-muted">
+                          Contrôlé par{' '}
+                          <span style={{ color: selected.ownerTeam!.color }}>{selected.ownerTeam!.name}</span>
+                          {selected.capturedAt && ` depuis le ${formatDate(selected.capturedAt)}`}
+                        </p>
+                        {owningTeam && (
+                          <div className="grid grid-cols-3 gap-px bg-ink-line">
+                            <div className="bg-ink px-3 py-2">
+                              <p className="text-[10px] text-parchment-muted">Énergie</p>
+                              <p className="font-mono text-brass">{owningTeam.energy}</p>
+                            </div>
+                            <div className="bg-ink px-3 py-2">
+                              <p className="text-[10px] text-parchment-muted">Membres</p>
+                              <p className="font-mono text-parchment">{owningTeam._count.members}</p>
+                            </div>
+                            <div className="bg-ink px-3 py-2">
+                              <p className="text-[10px] text-parchment-muted">Territoires</p>
+                              <p className="font-mono text-parchment">{owningTeam._count.territories}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <p className="text-sm text-parchment-muted">Territoire neutre — pas encore conquis.</p>
+                )}
+              </div>
+            )}
+            {!selected && (
+              <p className="mt-4 border-t border-ink-line pt-4 text-xs text-parchment-muted">
+                Clique sur une salle pour voir son détail.
+              </p>
+            )}
           </section>
 
           {/* --- Classement des équipes --- */}

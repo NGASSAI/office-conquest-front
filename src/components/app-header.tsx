@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/map', label: 'Carte' },
   { href: '/duel', label: 'Duel' },
+  { href: '/leaderboard', label: 'Classement' },
   { href: '/profile', label: 'Profil' },
 ];
 
