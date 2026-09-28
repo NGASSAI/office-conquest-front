@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { api, setAccessToken } from './api';
 import type { AuthUser } from '../store/auth-store';
 
@@ -42,7 +43,8 @@ export async function restoreSession(): Promise<AuthUser | null> {
   try {
     const { data } = await api.post('/auth/refresh');
     return await persistTokenAndFetchUser(data.accessToken);
-  } catch {
-    return null;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) return null;
+    throw error;
   }
 }

@@ -65,8 +65,14 @@ api.interceptors.response.use(
         const newToken = await refreshAccessToken();
         config.headers.Authorization = `Bearer ${newToken}`;
         return api(config);
-      } catch {
-        emitLoggedOut();
+      } catch (refreshError) {
+        if (
+          axios.isAxiosError(refreshError) &&
+          (refreshError.response?.status === 401 || refreshError.response?.status === 403)
+        ) {
+          emitLoggedOut();
+        }
+        return Promise.reject(refreshError);
       }
     }
 

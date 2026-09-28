@@ -39,6 +39,8 @@ function AdminChallengesContent() {
   const [challenges, setChallenges] = useState<ChallengeSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [date, setDate] = useState(tomorrowISO());
   const [type, setType] = useState<ChallengeType>('QUIZ');
@@ -114,6 +116,25 @@ function AdminChallengesContent() {
       setFormError(getApiErrorMessage(e, 'La création a échoué.'));
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function deleteChallenge(challenge: ChallengeSummary) {
+    const attempts = challenge._count.attempts;
+    const warning = attempts > 0
+      ? ` Cela supprimera aussi les ${attempts} tentative(s) associée(s), mais ne retirera pas l'énergie déjà gagnée.`
+      : '';
+    if (!window.confirm(`Supprimer « ${challenge.title} » ?${warning}`)) return;
+
+    setActionError(null);
+    setDeletingId(challenge.id);
+    try {
+      await api.delete(`/challenges/${challenge.id}`);
+      setChallenges((current) => current.filter((item) => item.id !== challenge.id));
+    } catch (e) {
+      setActionError(getApiErrorMessage(e, 'La suppression a échoué.'));
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -310,10 +331,14 @@ function AdminChallengesContent() {
 
       {/* --- Liste des défis existants --- */}
       <section className="border border-ink-line">
-        <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
-          Défis programmés
-        </h2>
+        <div className="border-b border-ink-line px-5 py-3">
+          <h2 className="font-display text-lg text-parchment">Défis récents</h2>
+          <p className="mt-1 text-xs text-parchment-muted">
+            Les défis passés restent enregistrés. Seuls les 30 plus récents sont affichés.
+          </p>
+        </div>
         {error && <p className="px-5 py-4 text-sm text-danger">{error}</p>}
+        {actionError && <p className="px-5 py-4 text-sm text-danger">{actionError}</p>}
         {loading ? (
           <div className="flex justify-center py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-ink-line border-t-brass" />
@@ -324,14 +349,24 @@ function AdminChallengesContent() {
               <p className="px-5 py-4 text-sm text-parchment-muted">Aucun défi programmé.</p>
             )}
             {challenges.map((c) => (
-              <div key={c.id} className="flex items-center justify-between px-5 py-3 text-sm">
+              <div key={c.id} className="flex items-center justify-between gap-4 px-5 py-3 text-sm">
                 <div>
                   <p className="text-parchment">{c.title}</p>
                   <p className="font-mono text-xs text-parchment-muted">
                     {new Date(c.date).toLocaleDateString('fr-FR')} · {c.type}
                   </p>
                 </div>
-                <span className="font-mono text-xs text-brass">{c._count.attempts} joué(s)</span>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="font-mono text-xs text-brass">{c._count.attempts} joué(s)</span>
+                  <button
+                    type="button"
+                    onClick={() => deleteChallenge(c)}
+                    disabled={deletingId !== null}
+                    className="text-xs text-danger hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deletingId === c.id ? 'Suppression…' : 'Supprimer'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
