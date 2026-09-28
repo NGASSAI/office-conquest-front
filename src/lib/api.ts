@@ -1,8 +1,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Instance axios avec cookie httpOnly envoyé automatiquement (remember me)
+const apiBaseUrl = process.env.NODE_ENV === 'production'
+  ? '/api'
+  : process.env.NEXT_PUBLIC_API_URL;
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: apiBaseUrl,
   withCredentials: true,
 });
 
