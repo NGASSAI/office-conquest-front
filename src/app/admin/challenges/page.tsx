@@ -95,8 +95,7 @@ function AdminChallengesContent() {
     return {}; // REFLEX
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function createChallenge() {
     setFormError(null);
     setSuccess(false);
 
@@ -174,7 +173,13 @@ function AdminChallengesContent() {
         <h2 className="border-b border-ink-line px-5 py-3 font-display text-lg text-parchment">
           Créer un défi
         </h2>
-        <form onSubmit={onSubmit} className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void createChallenge();
+          }}
+          className="space-y-4 px-4 py-4 sm:px-5 sm:py-5"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-sm text-parchment-muted">Date</label>
@@ -320,7 +325,8 @@ function AdminChallengesContent() {
           {success && <p className="text-xs text-teal">Défi créé avec succès.</p>}
 
           <button
-            type="submit"
+            type="button"
+            onClick={createChallenge}
             disabled={submitting}
             className="w-full border border-brass bg-brass px-4 py-2.5 font-medium text-ink transition hover:bg-transparent hover:text-brass disabled:cursor-not-allowed disabled:opacity-50"
           >

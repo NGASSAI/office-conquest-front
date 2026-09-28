@@ -172,7 +172,7 @@ function TeamsSection({
         <h2 className="font-display text-lg text-parchment">Équipes</h2>
         {!creating && (
           <button onClick={startCreate} className="text-xs text-brass hover:underline">
-            + Nouvelle équipe
+            + Créer une équipe
           </button>
         )}
       </div>
