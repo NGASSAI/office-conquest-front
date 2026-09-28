@@ -88,11 +88,27 @@ export interface ApiErrorPayload {
 // Extrait un message affichable à l'utilisateur, quel que soit le format renvoyé par Nest
 export function getApiErrorMessage(error: unknown, fallback = 'Une erreur est survenue'): string {
   if (axios.isAxiosError(error)) {
+    const isAuthRoute = configIsAuthRoute(error.config?.url);
+    if (error.response?.status === 401 && !isAuthRoute) {
+      return 'Ta session a expiré ou tu n’es pas connecté. Connecte-toi pour effectuer cette action.';
+    }
     const payload = error.response?.data as ApiErrorPayload | undefined;
     if (payload?.message) {
       return Array.isArray(payload.message) ? payload.message[0] : payload.message;
     }
-    if (error.code === 'ERR_NETWORK') return 'Impossible de joindre le serveur';
+    if (error.code === 'ERR_NETWORK') {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return 'Tu es hors ligne. Cette action nécessite une connexion Internet. Réessaie une fois reconnecté.';
+      }
+      return 'Le serveur est injoignable. Vérifie ta connexion Internet puis réessaie.';
+    }
+    if (error.response?.status === 401) {
+      return 'Connecte-toi pour effectuer cette action.';
+    }
   }
   return fallback;
+}
+
+function configIsAuthRoute(url?: string): boolean {
+  return Boolean(url && AUTH_ROUTES_EXCLUDED_FROM_RETRY.some((route) => url.includes(route)));
 }

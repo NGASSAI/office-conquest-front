@@ -10,6 +10,7 @@ import { logout } from '../../lib/auth';
 import { useAuthStore } from '../../store/auth-store';
 import { api, getApiErrorMessage } from '../../lib/api';
 import { HelpButton } from '../../components/help-button';
+import { AppHeader } from '../../components/app-header';
 
 
 
@@ -65,6 +66,7 @@ function formatDate(iso: string | null) {
 export default function ProfilePage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
+  const currentUser = useAuthStore((s) => s.user);
 const AVATAR_EMOJIS = ['🦊', '🐺', '🦉', '🐝', '🦅', '🐉', '🦁', '🐯', '🐨', '🦄', '🐧', '🦈'];
 const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#EDEAE0'];
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -72,6 +74,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const [teamChangeStatus, setTeamChangeStatus] = useState<'idle' | 'saving'>('idle');
   const [teamChangeError, setTeamChangeError] = useState<string | null>(null);
@@ -156,9 +159,13 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
   }
 
   async function onLogout() {
-    await logout();
-    setUser(null);
-    router.push('/login');
+    try {
+      await logout();
+      setUser(null);
+      router.push('/login');
+    } catch (error) {
+      setLogoutError(getApiErrorMessage(error, 'La déconnexion a échoué. Réessaie.'));
+    }
   }
 
   if (loading) {
@@ -171,16 +178,31 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
 
   if (loadError || !profile) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-4 sm:px-6">
-        <div className="border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
-          {loadError ?? 'Profil introuvable.'}
-        </div>
-      </main>
+      <>
+        <AppHeader />
+        <main className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-4 sm:px-6">
+          <div role="alert" className="max-w-lg border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
+            {loadError ?? 'Profil introuvable.'}
+          </div>
+          {!currentUser && (
+            <Link href="/login" className="text-sm text-brass hover:underline">
+              Se connecter pour accéder au profil
+            </Link>
+          )}
+        </main>
+      </>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+    <>
+      <AppHeader />
+      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-12">
+      {logoutError && (
+        <div role="alert" className="mb-6 border border-danger bg-danger/10 px-4 py-3 text-sm text-danger">
+          {logoutError}
+        </div>
+      )}
       <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <span
@@ -385,6 +407,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
       >
         Se déconnecter
       </button>
-    </main>
+      </main>
+    </>
   );
 }

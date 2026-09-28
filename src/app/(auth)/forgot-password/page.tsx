@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../lib/api';
+import { AppHeader } from '../../../components/app-header';
 
 type Step = 'email' | 'phrase' | 'newPassword' | 'done';
 
@@ -86,7 +87,9 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+    <>
+      <AppHeader />
+      <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
         <div className="mb-8 space-y-1">
           <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
@@ -249,6 +252,7 @@ export default function ForgotPasswordPage() {
           </Link>
         </p>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

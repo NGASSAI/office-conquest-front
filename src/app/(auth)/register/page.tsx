@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { register as registerUser } from '../../../lib/auth';
 import { getApiErrorMessage } from '../../../lib/api';
 import { useAuthStore } from '../../../store/auth-store';
+import { AppHeader } from '../../../components/app-header';
 
 // Miroir exact des règles du backend (RegisterDto) — pour prévenir l'erreur avant l'appel réseau,
 // jamais pour remplacer la validation serveur qui reste la seule source de vérité.
@@ -82,7 +83,9 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+    <>
+      <AppHeader />
+      <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6 space-y-1 sm:mb-8">
           <p className="font-mono text-xs uppercase tracking-widest text-parchment-muted">
@@ -226,6 +229,7 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-    </main>
+      </main>
+    </>
   );
 }

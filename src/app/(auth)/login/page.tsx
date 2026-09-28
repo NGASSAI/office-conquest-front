@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { login as loginUser } from '../../../lib/auth';
 import { getApiErrorMessage } from '../../../lib/api';
 import { useAuthStore } from '../../../store/auth-store';
+import { AppHeader } from '../../../components/app-header';
 
 const loginSchema = z.object({
   email: z.string().min(1, 'Email requis').email('Adresse email invalide'),
@@ -46,7 +47,9 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+    <>
+      <AppHeader />
+      <main className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6 space-y-1 sm:mb-8">
           <div className="flex items-center justify-between">
@@ -142,6 +145,7 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
-    </main>
+      </main>
+    </>
   );
 }
