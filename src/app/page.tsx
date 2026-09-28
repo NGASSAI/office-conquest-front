@@ -38,7 +38,7 @@ export default function HomePage() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="mb-6 text-sm text-parchment-muted sm:text-base md:text-lg"
           >
-            Joue aux défis en solo pour faire progresser ton profil, ou rejoins une équipe pour
+            Quiz, énigmes, Memory, réflexe et sondages : joue en solo pour faire progresser ton profil, ou rejoins une équipe pour
             gagner de l&apos;énergie et partir en raid à la conquête des territoires.
           </motion.p>
 

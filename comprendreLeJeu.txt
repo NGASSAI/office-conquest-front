@@ -44,12 +44,17 @@ C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affro
 **Comment on joue**
 - **QUIZ** : Une question avec 4 options, le joueur sélectionne une réponse et valide
 - **RIDDLE** : Une énigme avec un champ texte libre pour la réponse
-- **MEMORY** : Une séquence de couleurs s'affiche (ex: rouge-bleu-vert), le joueur doit la reproduire dans l'ordre
+- **POLL** : Une question légère avec 2 à 4 choix, sans mauvaise réponse, score compétitif ni énergie
+- **SPOT** : Une grille de 9 icônes où le joueur trouve l'intrus
+- **MEMORY** : Une séquence de couleurs à reproduire ou des paires d'icônes à retrouver
 - **REFLEX** : Un bouton apparaît après un délai aléatoire, le joueur doit cliquer le plus vite possible
 
 **Calcul du score**
 - Pour QUIZ/RIDDLE : 0 si faux, 50-100 points si vrai selon la rapidité (bonus de vitesse)
 - Pour MEMORY : pourcentage de la séquence correcte (ex: 3/5 correct = 60%)
+- Pour les paires MEMORY : le score dépend du nombre de coups, avec un plancher pour rester accessible
+- Pour POLL : aucun score ni énergie; la participation rapporte 10 XP et avance l'objectif hebdomadaire
+- Pour SPOT : 0 si l'intrus n'est pas trouvé, sinon 50-100 points selon la rapidité
 - Pour REFLEX : score basé sur le temps de réaction, borné entre 0 et 100
 - L'énergie d'équipe gagnée = score × difficulté du défi si le joueur a rejoint une équipe
 - Chaque participation rapporte aussi des points d'expérience personnels

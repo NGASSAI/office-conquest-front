@@ -75,6 +75,22 @@ function MemoryGame({
   onAnswer: (a: Record<string, unknown>) => void;
   disabled: boolean;
 }) {
+  if (content.mode === 'PAIRS') {
+    return <PairsMemoryGame content={content} onAnswer={onAnswer} disabled={disabled} />;
+  }
+
+  return <SequenceMemoryGame content={content} onAnswer={onAnswer} disabled={disabled} />;
+}
+
+function SequenceMemoryGame({
+  content,
+  onAnswer,
+  disabled,
+}: {
+  content: Record<string, unknown>;
+  onAnswer: (a: Record<string, unknown>) => void;
+  disabled: boolean;
+}) {
   const sequence = (content.correctSequence as string[]) ?? [];
   const [phase, setPhase] = useState<'showing' | 'input'>('showing');
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -129,6 +145,153 @@ function MemoryGame({
           {input.length} / {sequence.length}
         </p>
       )}
+    </div>
+  );
+}
+
+interface MemoryCard {
+  id: number;
+  symbol: string;
+}
+
+export function SpotGame({
+  content,
+  onAnswer,
+  disabled,
+}: {
+  content: Record<string, unknown>;
+  onAnswer: (answerData: Record<string, unknown>) => void;
+  disabled: boolean;
+}) {
+  const symbols = (content.symbols as string[]) ?? [];
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  return (
+    <div>
+      <p className="mb-4 text-sm text-parchment">{String(content.question ?? 'Trouve l’intrus.')}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {symbols.map((symbol, index) => (
+          <button
+            key={`${symbol}-${index}`}
+            type="button"
+            onClick={() => setSelectedIndex(index)}
+            disabled={disabled}
+            aria-label={`Choisir l’icône ${symbol}, case ${index + 1}`}
+            aria-pressed={selectedIndex === index}
+            className={`flex aspect-square items-center justify-center border text-4xl transition sm:text-5xl ${
+              selectedIndex === index
+                ? 'border-brass bg-brass/10 scale-[0.97]'
+                : 'border-ink-line bg-ink-panel hover:border-parchment-muted'
+            } disabled:cursor-not-allowed disabled:opacity-60`}
+          >
+            {symbol}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (selectedIndex !== null) onAnswer({ selectedSymbol: symbols[selectedIndex] });
+        }}
+        disabled={selectedIndex === null || disabled}
+        className="mt-4 border border-brass bg-brass px-4 py-2 text-sm font-medium text-ink transition hover:bg-transparent hover:text-brass disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {disabled ? 'Envoi…' : 'Valider mon choix'}
+      </button>
+    </div>
+  );
+}
+
+function PairsMemoryGame({
+  content,
+  onAnswer,
+  disabled,
+}: {
+  content: Record<string, unknown>;
+  onAnswer: (a: Record<string, unknown>) => void;
+  disabled: boolean;
+}) {
+  const pairSymbols = (content.pairSymbols as string[]) ?? [];
+  const [cards] = useState<MemoryCard[]>(() => {
+    const deck = pairSymbols.flatMap((symbol, index) => [
+      { id: index * 2, symbol },
+      { id: index * 2 + 1, symbol },
+    ]);
+    for (let index = deck.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      [deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]];
+    }
+    return deck;
+  });
+  const [revealedIds, setRevealedIds] = useState<number[]>([]);
+  const [matchedSymbols, setMatchedSymbols] = useState<string[]>([]);
+  const [pairAttempts, setPairAttempts] = useState(0);
+  const [complete, setComplete] = useState(false);
+  const mismatchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (mismatchTimer.current) clearTimeout(mismatchTimer.current);
+  }, []);
+
+  function reveal(card: MemoryCard) {
+    if (
+      disabled || complete || revealedIds.length === 2 || revealedIds.includes(card.id) ||
+      matchedSymbols.includes(card.symbol)
+    ) return;
+
+    const nextRevealed = [...revealedIds, card.id];
+    setRevealedIds(nextRevealed);
+    if (nextRevealed.length < 2) return;
+
+    const nextAttempts = pairAttempts + 1;
+    setPairAttempts(nextAttempts);
+    const firstCard = cards.find((item) => item.id === nextRevealed[0]);
+    if (firstCard?.symbol === card.symbol) {
+      const nextMatched = [...matchedSymbols, card.symbol];
+      setMatchedSymbols(nextMatched);
+      setRevealedIds([]);
+      if (nextMatched.length === pairSymbols.length) {
+        setComplete(true);
+        onAnswer({ matchedSymbols: nextMatched, pairAttempts: nextAttempts });
+      }
+      return;
+    }
+
+    mismatchTimer.current = setTimeout(() => setRevealedIds([]), 700);
+  }
+
+  return (
+    <div>
+      <p className="mb-1 text-sm text-parchment">Retourne deux cartes pour trouver une paire identique.</p>
+      <p className="mb-4 text-xs text-parchment-muted">
+        Paires trouvées : {matchedSymbols.length}/{pairSymbols.length} · Coups : {pairAttempts}
+      </p>
+      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3">
+        {cards.map((card) => {
+          const isRevealed = revealedIds.includes(card.id);
+          const isMatched = matchedSymbols.includes(card.symbol);
+          const isVisible = isRevealed || isMatched;
+          return (
+            <button
+              key={card.id}
+              type="button"
+              onClick={() => reveal(card)}
+              disabled={disabled || complete || isMatched || (revealedIds.length === 2 && !isRevealed)}
+              aria-label={isVisible ? `Carte ${card.symbol}` : 'Révéler une carte'}
+              aria-pressed={isVisible}
+              className={`aspect-square border text-3xl transition-all duration-200 disabled:cursor-not-allowed ${
+                isMatched
+                  ? 'scale-[0.97] border-teal bg-teal/20 text-parchment'
+                  : isVisible
+                    ? 'border-brass bg-ink-panel text-parchment'
+                    : 'border-ink-line bg-ink-panel text-transparent hover:border-brass'
+              }`}
+            >
+              {isVisible ? card.symbol : '?'}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

@@ -7,7 +7,16 @@ import { AppHeader } from '../../../components/app-header';
 import { AdminGuard } from '../../../components/admin-guard';
 import { HelpButton } from '../../../components/help-button';
 
-type ChallengeType = 'QUIZ' | 'RIDDLE' | 'MEMORY' | 'REFLEX';
+type ChallengeType = 'QUIZ' | 'RIDDLE' | 'MEMORY' | 'REFLEX' | 'POLL' | 'SPOT';
+
+const CHALLENGE_TYPE_LABELS: Record<ChallengeType, string> = {
+  QUIZ: 'Quiz',
+  RIDDLE: 'Énigme',
+  MEMORY: 'Memory',
+  REFLEX: 'Réflexe',
+  POLL: 'Sondage',
+  SPOT: 'Trouve l’intrus',
+};
 
 interface ChallengeSummary {
   id: string;
@@ -19,6 +28,8 @@ interface ChallengeSummary {
 }
 
 const MEMORY_COLORS = ['red', 'blue', 'green', 'yellow'];
+const MEMORY_PAIR_SYMBOLS = ['☕', '⭐', '🎧', '🍕', '🌱', '🐱', '⚽', '🎈'];
+const SPOT_SYMBOLS = ['☕', '🌱', '⭐', '🎧', '🍕', '🐱', '⚽', '🎈'];
 
 function tomorrowISO() {
   const d = new Date();
@@ -52,6 +63,11 @@ function AdminChallengesContent() {
   const [options, setOptions] = useState(['', '', '', '']);
   const [correctAnswer, setCorrectAnswer] = useState('');
   const [memorySequence, setMemorySequence] = useState<string[]>([]);
+  const [memoryMode, setMemoryMode] = useState<'SEQUENCE' | 'PAIRS'>('SEQUENCE');
+  const [memoryPairSymbols, setMemoryPairSymbols] = useState(['☕', '⭐', '🎧', '🍕']);
+  const [spotMainSymbol, setSpotMainSymbol] = useState('☕');
+  const [spotOddSymbol, setSpotOddSymbol] = useState('🌱');
+  const [spotQuestion, setSpotQuestion] = useState('Repère l’icône différente.');
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -74,6 +90,11 @@ function AdminChallengesContent() {
     setOptions(['', '', '', '']);
     setCorrectAnswer('');
     setMemorySequence([]);
+    setMemoryMode('SEQUENCE');
+    setMemoryPairSymbols(['☕', '⭐', '🎧', '🍕']);
+    setSpotMainSymbol('☕');
+    setSpotOddSymbol('🌱');
+    setSpotQuestion('Repère l’icône différente.');
     setDifficulty(1);
   }
 
@@ -84,11 +105,28 @@ function AdminChallengesContent() {
       if (!cleanOptions.includes(correctAnswer)) return null;
       return { question, options: cleanOptions, correctAnswer };
     }
+    if (type === 'POLL') {
+      const cleanOptions = options.map((option) => option.trim()).filter(Boolean);
+      if (
+        !question.trim() || cleanOptions.length < 2 || cleanOptions.length > 4 ||
+        new Set(cleanOptions).size !== cleanOptions.length
+      ) return null;
+      return { question: question.trim(), options: cleanOptions };
+    }
     if (type === 'RIDDLE') {
       if (!question.trim() || !correctAnswer.trim()) return null;
       return { question, correctAnswer };
     }
+    if (type === 'SPOT') {
+      if (!spotQuestion.trim() || spotMainSymbol === spotOddSymbol) return null;
+      const oddIndex = Math.floor(Math.random() * 9);
+      const symbols = Array.from({ length: 9 }, (_, index) => index === oddIndex ? spotOddSymbol : spotMainSymbol);
+      return { question: spotQuestion.trim(), symbols, oddSymbol: spotOddSymbol };
+    }
     if (type === 'MEMORY') {
+      if (memoryMode === 'PAIRS') {
+        return memoryPairSymbols.length >= 3 ? { mode: 'PAIRS', pairSymbols: memoryPairSymbols } : null;
+      }
       if (memorySequence.length === 0) return null;
       return { correctSequence: memorySequence };
     }
@@ -158,10 +196,11 @@ function AdminChallengesContent() {
             title="Défis quotidiens"
             content={[
               "Crée des défis pour chaque date pour que les joueurs aient un défi quotidien.",
-              "Types disponibles : Quiz (question à choix), Riddle (énigme texte), Memory (séquence couleurs), Reflex (temps de réaction).",
+              "Types disponibles : Quiz, énigme, Memory, réflexe, sondage participatif et Trouve l'intrus.",
               "La difficulté (1-5) multiplie l'énergie gagnée par les joueurs.",
               "Pour Quiz : la bonne réponse doit correspondre exactement à une option.",
-              "Pour Memory : clique sur les couleurs dans l'ordre pour créer la séquence.",
+              "Pour Sondage : question légère et 2 à 4 choix uniques, sans réponse correcte.",
+              "Pour Memory : choisis une séquence de couleurs ou configure des paires d'icônes.",
               "Pour Reflex : aucun contenu requis, le score se base sur le temps de réaction."
             ]}
           />
@@ -205,8 +244,8 @@ function AdminChallengesContent() {
 
           <div>
             <label className="mb-1.5 block text-sm text-parchment-muted">Type</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {(['QUIZ', 'RIDDLE', 'MEMORY', 'REFLEX'] as ChallengeType[]).map((t) => (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {(['QUIZ', 'RIDDLE', 'MEMORY', 'REFLEX', 'POLL', 'SPOT'] as ChallengeType[]).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -218,7 +257,7 @@ function AdminChallengesContent() {
                     type === t ? 'border-brass text-brass' : 'border-ink-line text-parchment-muted hover:border-parchment-muted'
                   }`}
                 >
-                  {t}
+                    {CHALLENGE_TYPE_LABELS[t]}
                 </button>
               ))}
             </div>
@@ -235,21 +274,54 @@ function AdminChallengesContent() {
             />
           </div>
 
-          {(type === 'QUIZ' || type === 'RIDDLE') && (
+          {(type === 'QUIZ' || type === 'RIDDLE' || type === 'POLL' || type === 'SPOT') && (
             <div>
-              <label className="mb-1.5 block text-sm text-parchment-muted">Question</label>
+              <label className="mb-1.5 block text-sm text-parchment-muted">
+                {type === 'SPOT' ? 'Consigne du jeu' : 'Question'}
+              </label>
               <input
                 type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
+                value={type === 'SPOT' ? spotQuestion : question}
+                onChange={(e) => type === 'SPOT' ? setSpotQuestion(e.target.value) : setQuestion(e.target.value)}
                 className="w-full border border-ink-line bg-ink-panel px-3 py-2 text-parchment focus:border-brass"
               />
             </div>
           )}
 
-          {type === 'QUIZ' && (
+          {type === 'SPOT' && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-sm text-parchment-muted">
+                Icônes principales
+                <select
+                  value={spotMainSymbol}
+                  onChange={(event) => setSpotMainSymbol(event.target.value)}
+                  className="mt-1.5 w-full border border-ink-line bg-ink-panel px-3 py-2 text-2xl text-parchment"
+                >
+                  {SPOT_SYMBOLS.filter((symbol) => symbol !== spotOddSymbol).map((symbol) => (
+                    <option key={symbol} value={symbol}>{symbol}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm text-parchment-muted">
+                Icône intruse
+                <select
+                  value={spotOddSymbol}
+                  onChange={(event) => setSpotOddSymbol(event.target.value)}
+                  className="mt-1.5 w-full border border-ink-line bg-ink-panel px-3 py-2 text-2xl text-parchment"
+                >
+                  {SPOT_SYMBOLS.filter((symbol) => symbol !== spotMainSymbol).map((symbol) => (
+                    <option key={symbol} value={symbol}>{symbol}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="col-span-2 text-xs text-parchment-muted">Une grille mélangée de 9 icônes sera créée automatiquement.</p>
+            </div>
+          )}
+          {(type === 'QUIZ' || type === 'POLL') && (
             <div>
-              <label className="mb-1.5 block text-sm text-parchment-muted">Options (4)</label>
+              <label className="mb-1.5 block text-sm text-parchment-muted">
+                {type === 'POLL' ? 'Choix du sondage (2 à 4)' : 'Options (4)'}
+              </label>
               <div className="space-y-2">
                 {options.map((opt, i) => (
                   <input
@@ -269,6 +341,10 @@ function AdminChallengesContent() {
             </div>
           )}
 
+          {type === 'POLL' && (
+            <p className="text-xs text-teal">Pas de mauvaise réponse : le vote rapporte de l&apos;XP et fait avancer l&apos;objectif commun, sans énergie ni score compétitif.</p>
+          )}
+
           {(type === 'QUIZ' || type === 'RIDDLE') && (
             <div>
               <label className="mb-1.5 block text-sm text-parchment-muted">
@@ -285,6 +361,26 @@ function AdminChallengesContent() {
 
           {type === 'MEMORY' && (
             <div>
+              <label className="mb-1.5 block text-sm text-parchment-muted">Mode de jeu</label>
+              <div className="mb-4 grid grid-cols-2 gap-2">
+                {([
+                  ['SEQUENCE', 'Séquence'],
+                  ['PAIRS', 'Paires d’icônes'],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setMemoryMode(mode)}
+                    className={`border px-3 py-2 text-xs transition ${
+                      memoryMode === mode ? 'border-brass text-brass' : 'border-ink-line text-parchment-muted hover:border-parchment-muted'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {memoryMode === 'SEQUENCE' ? (
+                <>
               <label className="mb-1.5 block text-sm text-parchment-muted">
                 Séquence à mémoriser — clique les couleurs dans l&apos;ordre
               </label>
@@ -311,6 +407,35 @@ function AdminChallengesContent() {
                 >
                   Réinitialiser
                 </button>
+              )}
+                </>
+              ) : (
+                <>
+                  <p className="mb-2 text-sm text-parchment-muted">Choisis de 3 à 8 icônes; chacune apparaîtra deux fois.</p>
+                  <div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+                    {MEMORY_PAIR_SYMBOLS.map((symbol) => {
+                      const selected = memoryPairSymbols.includes(symbol);
+                      return (
+                        <button
+                          key={symbol}
+                          type="button"
+                          aria-pressed={selected}
+                          onClick={() => setMemoryPairSymbols((current) => selected
+                            ? current.filter((item) => item !== symbol)
+                            : current.length < 8 ? [...current, symbol] : current)}
+                          className={`flex aspect-square items-center justify-center border text-xl transition ${
+                            selected ? 'border-brass bg-brass/10' : 'border-ink-line hover:border-parchment-muted'
+                          }`}
+                        >
+                          {symbol}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-xs text-parchment-muted">
+                    {memoryPairSymbols.length} paires sélectionnées · 3 minimum
+                  </p>
+                </>
               )}
             </div>
           )}
@@ -359,7 +484,7 @@ function AdminChallengesContent() {
                 <div>
                   <p className="text-parchment">{c.title}</p>
                   <p className="font-mono text-xs text-parchment-muted">
-                    {new Date(c.date).toLocaleDateString('fr-FR')} · {c.type}
+                    {new Date(c.date).toLocaleDateString('fr-FR')} · {CHALLENGE_TYPE_LABELS[c.type]}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">

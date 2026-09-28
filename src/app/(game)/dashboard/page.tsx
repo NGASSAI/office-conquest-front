@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
 import { HelpButton } from '../../../components/help-button';
-import { RoundGame } from '../../../components/round-game';
+import { RoundGame, SpotGame } from '../../../components/round-game';
 
 interface TeamSummary {
   id: string;
@@ -19,7 +19,7 @@ interface TeamSummary {
 
 interface TodayChallenge {
   id: string;
-  type: 'QUIZ' | 'RIDDLE' | 'MEMORY' | 'REFLEX';
+  type: 'QUIZ' | 'RIDDLE' | 'MEMORY' | 'REFLEX' | 'POLL' | 'SPOT';
   title: string;
   difficulty: number;
   content: Record<string, unknown>;
@@ -274,8 +274,10 @@ export default function DashboardPage() {
                   "Chaque participation rapporte de l'expérience, même si ta réponse est incorrecte.",
                   "Si tu rejoins une équipe, ton score lui rapporte aussi de l'énergie.",
                   "Les équipes sont nécessaires pour participer aux raids, pas pour jouer aux défis.",
-                  "Quiz et énigme : réponse correcte = points selon rapidité.",
-                  "Mémoire : reproduis la séquence de couleurs.",
+                  "Quiz et énigme : points selon la réponse et la rapidité.",
+                  "Sondage : partage ton choix, sans score compétitif ni énergie.",
+                  "Memory : reproduis une séquence ou retrouve des paires.",
+                  "Trouve l'intrus : repère l'icône différente dans la grille.",
                   "Réflexe : clique le plus vite possible quand le bouton apparaît.",
                   "Quand ton équipe atteint le seuil d'énergie, un raid se déclenche automatiquement !"
                 ]}
@@ -313,19 +315,27 @@ export default function DashboardPage() {
 
               {challenge && challenge.alreadyPlayed && !attemptResult && (
                 <p className="text-sm text-teal">
-                  Défi déjà joué — score : {challenge.previousScore}.
+                  {challenge.type === 'POLL'
+                    ? 'Vote déjà enregistré.'
+                    : `Défi déjà joué — score : ${challenge.previousScore}.`}
                   {challenges.some((item) => !item.alreadyPlayed) && ' Tu peux encore jouer les autres défis.'}
                 </p>
               )}
 
               {attemptResult && (
                 <div className="animate-capture border border-brass px-4 py-3">
-                  <p className="text-parchment">
-                    Score : <span className="font-mono text-brass">{attemptResult.score}</span>
-                  </p>
+                  {challenge?.type === 'POLL' ? (
+                    <p className="text-parchment">Choix enregistré, merci d&apos;avoir participé !</p>
+                  ) : attemptResult.score === 0 ? (
+                    <p className="text-parchment">Partie enregistrée, bien joué d&apos;avoir participé !</p>
+                  ) : (
+                    <p className="text-parchment">
+                      Score : <span className="font-mono text-brass">{attemptResult.score}</span>
+                    </p>
+                  )}
                   <p className="text-sm text-parchment-muted">
                     +{attemptResult.experienceEarned} XP pour ton profil
-                    {team && <> · +{attemptResult.energyEarned} énergie pour ton équipe</>}
+                    {team && challenge?.type !== 'POLL' && <> · +{attemptResult.energyEarned} énergie pour ton équipe</>}
                   </p>
                 </div>
               )}
@@ -429,11 +439,18 @@ function ChallengeForm({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [riddleAnswer, setRiddleAnswer] = useState('');
 
-  if (challenge.type === 'QUIZ') {
+  if (challenge.type === 'SPOT') {
+    return <SpotGame content={challenge.content} onAnswer={onSubmit} disabled={submitting} />;
+  }
+
+  if (challenge.type === 'QUIZ' || challenge.type === 'POLL') {
     const content = challenge.content as { question: string; options: string[] };
     return (
       <div>
         <p className="mb-4 text-parchment">{content.question}</p>
+        {challenge.type === 'POLL' && (
+          <p className="mb-3 text-xs text-teal">Pas de bonne ou mauvaise réponse. Ton vote rapporte de l&apos;XP et fait avancer l&apos;objectif commun.</p>
+        )}
         <div className="space-y-2">
           {content.options?.map((option) => (
             <button
@@ -455,7 +472,7 @@ function ChallengeForm({
           disabled={!selectedOption || submitting}
           className="mt-4 border border-brass bg-brass px-4 py-2 text-sm font-medium text-ink transition hover:bg-transparent hover:text-brass disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {submitting ? 'Envoi…' : 'Valider'}
+          {submitting ? 'Envoi…' : challenge.type === 'POLL' ? 'Envoyer mon choix' : 'Valider'}
         </button>
       </div>
     );
