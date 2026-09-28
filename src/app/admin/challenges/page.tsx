@@ -147,7 +147,7 @@ function AdminChallengesContent() {
         <div>
           <h1 className="mb-1 text-3xl font-semibold text-parchment">Défis quotidiens</h1>
           <p className="text-sm text-parchment-muted">
-            Un défi par jour maximum — sans ça, le dashboard des joueurs reste vide.
+            Programme un ou plusieurs défis par date; ils seront tous accessibles aux joueurs.
           </p>
         </div>
         <div className="flex items-center gap-4">

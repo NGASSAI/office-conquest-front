@@ -17,14 +17,15 @@ C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affro
 - Le "remember me" fonctionne automatiquement grâce à ce cookie : s'il revient sur le site, le refresh token est utilisé pour obtenir un nouvel access token sans qu'il ait à se reconnecter
 
 **Choix d'équipe**
-- Il va dans son profil pour choisir une équipe parmi celles créées par l'admin
+- Il peut choisir une équipe parmi celles créées par l'admin, ou rester en solo
 - Le changement d'équipe est libre et instantané - il peut changer d'équipe à tout moment
 - Chaque équipe a une couleur et un seuil d'énergie (par défaut 1000) qui déclenche les raids
 
 **Session de jeu typique**
 - Il arrive sur le dashboard où il voit le défi du jour (quiz, énigme, mémoire ou réflexe)
-- Il complète le défi une seule fois par jour - le score est calculé côté serveur et converti en énergie pour son équipe
-- S'il n'a pas d'équipe, un message l'invite à en rejoindre une
+- Il peut compléter chaque défi disponible une fois par jour - le score est calculé côté serveur
+- Chaque participation rapporte de l'expérience; s'il a une équipe, le score lui apporte aussi de l'énergie
+- L'équipe reste facultative pour les défis, mais nécessaire pour l'énergie d'équipe et les raids
 - Dans la sidebar, il voit les raids actifs impliquant son équipe et peut y participer en temps réel
 - Il peut aussi aller sur la page "Duel" pour défier un collègue en 1v1
 - Il consulte la carte pour voir quels territoires sont contrôlés par quelle équipe
@@ -38,7 +39,7 @@ C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affro
 **Déclenchement**
 - Un admin crée un défi pour une date donnée via l'interface admin
 - Le défi apparaît automatiquement sur le dashboard de tous les joueurs ce jour-là
-- Chaque joueur ne peut jouer qu'une seule fois par jour (contrainte unique en base de données)
+- Chaque joueur peut jouer chaque défi une fois (contrainte unique sur le joueur et le défi)
 
 **Comment on joue**
 - **QUIZ** : Une question avec 4 options, le joueur sélectionne une réponse et valide
@@ -50,7 +51,8 @@ C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affro
 - Pour QUIZ/RIDDLE : 0 si faux, 50-100 points si vrai selon la rapidité (bonus de vitesse)
 - Pour MEMORY : pourcentage de la séquence correcte (ex: 3/5 correct = 60%)
 - Pour REFLEX : score basé sur le temps de réaction, borné entre 0 et 100
-- L'énergie gagnée = score × difficulté du défi
+- L'énergie d'équipe gagnée = score × difficulté du défi si le joueur a rejoint une équipe
+- Chaque participation rapporte aussi des points d'expérience personnels
 
 **Anti-triche**
 - La bonne réponse n'est jamais envoyée au client (seul le contenu sans la réponse est transmis)
@@ -132,9 +134,8 @@ C'est un jeu de bureau en ligne où des collègues répartis en équipes s'affro
 - La carte se met à jour automatiquement pour refléter le nouveau propriétaire
 
 **Initialisation du jeu**
-- L'admin doit d'abord créer des équipes (nom, couleur, seuil d'énergie)
-- L'admin doit créer des territoires (nom, propriétaire initial ou neutre)
-- Sans équipe ni territoire, le jeu est injouable (message d'avertissement dans l'interface admin)
+- Les défis quotidiens peuvent être joués en solo dès qu'ils sont programmés
+- L'admin crée les équipes (nom, couleur, seuil d'énergie) et les territoires (nom, propriétaire initial ou neutre) pour activer les raids
 
 ---
 

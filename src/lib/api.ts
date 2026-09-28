@@ -91,8 +91,22 @@ api.interceptors.response.use(
 // Forme normalisée d'une erreur API (le backend renvoie { statusCode, message, path, timestamp })
 export interface ApiErrorPayload {
   statusCode: number;
-  message: string | string[];
+  message: unknown;
   path?: string;
+}
+
+function extractErrorMessage(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const message = extractErrorMessage(item);
+      if (message) return message;
+    }
+  }
+  if (value && typeof value === 'object' && 'message' in value) {
+    return extractErrorMessage(value.message);
+  }
+  return null;
 }
 
 // Extrait un message affichable à l'utilisateur, quel que soit le format renvoyé par Nest
@@ -103,9 +117,8 @@ export function getApiErrorMessage(error: unknown, fallback = 'Une erreur est su
       return 'Ta session a expiré ou tu n’es pas connecté. Connecte-toi pour effectuer cette action.';
     }
     const payload = error.response?.data as ApiErrorPayload | undefined;
-    if (payload?.message) {
-      return Array.isArray(payload.message) ? payload.message[0] : payload.message;
-    }
+    const message = extractErrorMessage(payload?.message);
+    if (message) return message;
     if (error.code === 'ERR_NETWORK') {
       if (typeof navigator !== 'undefined' && !navigator.onLine) {
         return 'Tu es hors ligne. Cette action nécessite une connexion Internet. Réessaie une fois reconnecté.';

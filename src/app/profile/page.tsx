@@ -40,6 +40,11 @@ interface ProfileData {
 interface Performance {
   challengesCompleted: number;
   totalEnergyContributed: number;
+  experiencePoints: number;
+  level: number;
+  levelProgress: number;
+  levelSize: number;
+  badges: { id: string; title: string; description: string; unlocked: boolean }[];
   averageScore: number;
   raidsParticipated: number;
   duelsWon: number;
@@ -120,10 +125,13 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
 
   async function onChangeTeam(teamId: string) {
     if (!profile || teamId === profile.teamId) return;
+    if (!teamId && profile.teamId && !window.confirm('Passer en mode solo ? Ton énergie déjà gagnée restera à ton équipe.')) {
+      return;
+    }
     setTeamChangeStatus('saving');
     setTeamChangeError(null);
     try {
-      await api.patch('/users/me/team', { teamId });
+      await api.patch('/users/me/team', { teamId: teamId || null });
       const newTeam = teams.find((t) => t.id === teamId) ?? null;
       setProfile((p) => (p ? { ...p, teamId, team: newTeam } : p));
     } catch (error) {
@@ -309,7 +317,7 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
         </h2>
         <div className="px-4 py-4 sm:px-5">
           <label htmlFor="team" className="mb-1.5 block text-sm text-parchment-muted">
-            Tu peux changer d&apos;équipe à tout moment
+            Rejoins une équipe ou joue en solo; tu peux changer de choix à tout moment.
           </label>
           <select
             id="team"
@@ -318,8 +326,8 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
             disabled={teamChangeStatus === 'saving'}
             className="w-full border border-ink-line bg-ink-panel px-3 py-2.5 text-parchment focus:border-brass"
           >
-            <option value="" disabled>
-              Choisir une équipe
+            <option value="">
+              Jouer en solo (sans équipe)
             </option>
             {teams.map((team) => (
               <option key={team.id} value={team.id}>
@@ -341,6 +349,8 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
             {[
               ['Défis complétés', performance.challengesCompleted],
               ['Énergie apportée', performance.totalEnergyContributed],
+              ['Expérience', `${performance.experiencePoints} XP`],
+              ['Niveau', performance.level],
               ['Score moyen', performance.averageScore],
               ['Raids joués', performance.raidsParticipated],
               ['Duels gagnés', performance.duelsWon],
@@ -350,6 +360,36 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
                 <p className="wrap-break-word font-mono text-xl text-parchment sm:text-2xl">{value}</p>
               </div>
             ))}
+          </div>
+          <div className="border-t border-ink-line px-4 py-4 sm:px-5">
+            <div className="mb-2 flex justify-between gap-3 text-xs text-parchment-muted">
+              <span>Progression vers le niveau {performance.level + 1}</span>
+              <span>{performance.levelProgress} / {performance.levelSize} XP</span>
+            </div>
+            <div
+              className="h-2 bg-ink-line"
+              role="progressbar"
+              aria-label="Progression vers le niveau suivant"
+              aria-valuemin={0}
+              aria-valuemax={performance.levelSize}
+              aria-valuenow={performance.levelProgress}
+            >
+              <div
+                className="h-full bg-teal"
+                style={{ width: `${(performance.levelProgress / performance.levelSize) * 100}%` }}
+              />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {performance.badges.map((badge) => (
+                <span
+                  key={badge.id}
+                  title={badge.description}
+                  className={`border px-2 py-1 text-xs ${badge.unlocked ? 'border-brass/60 text-brass' : 'border-ink-line text-parchment-muted'}`}
+                >
+                  {badge.title}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
       )}

@@ -38,19 +38,43 @@ interface RaidSummary {
 interface AttemptResult {
   score: number;
   energyEarned: number;
+  experienceEarned: number;
+}
+
+interface PlayerProgress {
+  challengesCompleted: number;
+  experiencePoints: number;
+  level: number;
+  levelProgress: number;
+  levelSize: number;
+  badges: { id: string; title: string; description: string; unlocked: boolean }[];
+}
+
+interface WeeklyGoal {
+  completed: number;
+  target: number;
+  percent: number;
+  endsAt: string;
 }
 
 export default function DashboardPage() {
   const [team, setTeam] = useState<TeamSummary | null>(null);
-  const [challenge, setChallenge] = useState<TodayChallenge | null>(null);
+  const [challenges, setChallenges] = useState<TodayChallenge[]>([]);
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const [raids, setRaids] = useState<RaidSummary[]>([]);
+  const [playerProgress, setPlayerProgress] = useState<PlayerProgress | null>(null);
+  const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [answerError, setAnswerError] = useState<string | null>(null);
-  const [attemptResult, setAttemptResult] = useState<AttemptResult | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
+  const [attemptResults, setAttemptResults] = useState<Record<string, AttemptResult>>({});
+  const [submittingChallengeId, setSubmittingChallengeId] = useState<string | null>(null);
   const startedAt = useRef<number>(Date.now());
+  const challenge = challenges.find((item) => item.id === selectedChallengeId) ?? challenges[0] ?? null;
+  const attemptResult = challenge ? attemptResults[challenge.id] ?? null : null;
+  const answerError = challenge ? answerErrors[challenge.id] ?? null : null;
+  const submitting = submittingChallengeId !== null;
 
   useEffect(() => {
     async function load() {
@@ -62,13 +86,23 @@ export default function DashboardPage() {
         setTeam(profileRes.data.team);
         setRaids(raidsRes.data);
 
+        const [progressResult, goalResult] = await Promise.allSettled([
+          api.get<PlayerProgress>('/users/me/performance'),
+          api.get<WeeklyGoal>('/challenges/weekly-goal'),
+        ]);
+        if (progressResult.status === 'fulfilled') setPlayerProgress(progressResult.value.data);
+        if (goalResult.status === 'fulfilled') setWeeklyGoal(goalResult.value.data);
+
         // Le défi du jour est indépendant : son absence (pas encore d'équipe) ne doit pas casser le reste
         try {
-          const challengeRes = await api.get<TodayChallenge>('/challenges/today');
-          setChallenge(challengeRes.data);
+          const challengeRes = await api.get<TodayChallenge[]>('/challenges/today');
+          setChallenges(challengeRes.data);
+          setSelectedChallengeId(
+            challengeRes.data.find((item) => !item.alreadyPlayed)?.id ?? challengeRes.data[0]?.id ?? null,
+          );
           startedAt.current = Date.now();
         } catch {
-          setChallenge(null);
+          setChallenges([]);
         }
       } catch (error) {
         setLoadError(getApiErrorMessage(error, 'Impossible de charger le dashboard.'));
@@ -79,25 +113,60 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  async function submitQuizOrRiddle(answerData: Record<string, unknown>) {
-    if (!challenge) return;
-    setAnswerError(null);
-    setSubmitting(true);
+  function selectChallenge(challengeId: string) {
+    setSelectedChallengeId(challengeId);
+    startedAt.current = Date.now();
+  }
+
+  async function submitChallenge(challengeId: string, answerData: Record<string, unknown>) {
+    setAnswerErrors((current) => ({ ...current, [challengeId]: '' }));
+    setSubmittingChallengeId(challengeId);
     try {
       const timeTakenSeconds = Math.round((Date.now() - startedAt.current) / 1000);
-      const { data } = await api.post<AttemptResult>(`/challenges/${challenge.id}/attempt`, {
+      const { data } = await api.post<AttemptResult>(`/challenges/${challengeId}/attempt`, {
         answerData,
         timeTakenSeconds,
       });
-      setAttemptResult(data);
-      setChallenge((c) => (c ? { ...c, alreadyPlayed: true } : c));
+      const experienceEarned = data.experienceEarned ?? 10 + Math.floor(data.score / 10);
+      setAttemptResults((current) => ({ ...current, [challengeId]: { ...data, experienceEarned } }));
+      setChallenges((current) => current.map((item) => item.id === challengeId
+        ? { ...item, alreadyPlayed: true, previousScore: data.score }
+        : item));
+      setPlayerProgress((current) => {
+        if (!current || typeof current.experiencePoints !== 'number') return current;
+        const challengesCompleted = (current.challengesCompleted ?? 0) + 1;
+        const experiencePoints = current.experiencePoints + experienceEarned;
+        return {
+          ...current,
+          challengesCompleted,
+          experiencePoints,
+          level: Math.floor(experiencePoints / current.levelSize) + 1,
+          levelProgress: experiencePoints % current.levelSize,
+          badges: (current.badges ?? []).map((badge) => ({
+            ...badge,
+            unlocked: badge.unlocked ||
+              (badge.id === 'first-challenge' && challengesCompleted >= 1) ||
+              (badge.id === 'five-challenges' && challengesCompleted >= 5) ||
+              (badge.id === 'twenty-challenges' && challengesCompleted >= 20) ||
+              (badge.id === 'perfect-score' && data.score === 100),
+          })),
+        };
+      });
+      setWeeklyGoal((current) => current ? {
+        ...current,
+        completed: current.completed + 1,
+        percent: Math.min(100, Math.round(((current.completed + 1) / current.target) * 100)),
+      } : current);
       if (team) {
         setTeam((t) => (t ? { ...t, energy: t.energy + data.energyEarned } : t));
       }
     } catch (error) {
-      setAnswerError(getApiErrorMessage(error, "La soumission a échoué."));
+      setAnswerErrors((current) => ({
+        ...current,
+        [challengeId]: getApiErrorMessage(error, "La soumission a échoué."),
+      }));
     } finally {
-      setSubmitting(false);
+      setSubmittingChallengeId(null);
     }
   }
 
@@ -120,13 +189,74 @@ export default function DashboardPage() {
         )}
 
         {!team && (
-          <div className="mb-6 border border-brass bg-brass/10 px-4 py-3 text-sm text-parchment">
-            Tu n&apos;as pas encore rejoint d&apos;équipe.{' '}
-            <Link href="/profile" className="text-brass hover:underline">
-              Choisis-en une dans ton profil
-            </Link>{' '}
-            pour commencer à jouer.
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border border-teal/50 bg-teal/10 px-4 py-3 text-sm text-parchment">
+            <p>
+              Mode solo actif. Tes défis font progresser ton profil; une équipe reste facultative.
+            </p>
+            <Link href="/profile" className="shrink-0 text-brass hover:underline">
+              Voir les équipes
+            </Link>
           </div>
+        )}
+
+        {playerProgress && (
+          <section className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <h2 className="font-display text-lg text-parchment">Ta progression</h2>
+              <p className="font-mono text-sm text-brass">
+                Niveau {playerProgress.level} · {playerProgress.experiencePoints} XP
+              </p>
+            </div>
+            <div
+              className="mt-3 h-2 bg-ink-line"
+              role="progressbar"
+              aria-label="Progression vers le niveau suivant"
+              aria-valuemin={0}
+              aria-valuemax={playerProgress.levelSize}
+              aria-valuenow={playerProgress.levelProgress}
+            >
+              <div
+                className="h-full bg-teal transition-all"
+                style={{ width: `${(playerProgress.levelProgress / playerProgress.levelSize) * 100}%` }}
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {playerProgress.badges.map((badge) => (
+                <span
+                  key={badge.id}
+                  title={badge.description}
+                  className={`border px-2 py-1 text-xs ${badge.unlocked ? 'border-brass/60 text-brass' : 'border-ink-line text-parchment-muted'}`}
+                >
+                  {badge.title}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {weeklyGoal && (
+          <section className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <div>
+                <h2 className="font-display text-base text-parchment">Objectif commun de la semaine</h2>
+                <p className="mt-1 text-xs text-parchment-muted">Chaque défi joué compte, en équipe comme en solo.</p>
+              </div>
+              <p className="font-mono text-sm text-teal">{weeklyGoal.completed} / {weeklyGoal.target}</p>
+            </div>
+            <div
+              className="mt-3 h-2 bg-ink-line"
+              role="progressbar"
+              aria-label="Progression de l'objectif commun hebdomadaire"
+              aria-valuemin={0}
+              aria-valuemax={weeklyGoal.target}
+              aria-valuenow={Math.min(weeklyGoal.target, weeklyGoal.completed)}
+            >
+              <div className="h-full bg-brass transition-all" style={{ width: `${weeklyGoal.percent}%` }} />
+            </div>
+            {weeklyGoal.completed >= weeklyGoal.target && (
+              <p className="mt-2 text-xs text-teal">Objectif atteint, bravo à toute la communauté !</p>
+            )}
+          </section>
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
@@ -139,9 +269,11 @@ export default function DashboardPage() {
               <HelpButton
                 title="Comment ça marche ?"
                 content={[
-                  "Chaque jour, un nouveau défi est disponible.",
-                  "Tu ne peux le jouer qu'une seule fois par jour.",
-                  "Ton score est converti en énergie pour ton équipe.",
+                  "Chaque jour, plusieurs défis peuvent être disponibles.",
+                  "Tu peux jouer chaque défi une seule fois.",
+                  "Chaque participation rapporte de l'expérience, même si ta réponse est incorrecte.",
+                  "Si tu rejoins une équipe, ton score lui rapporte aussi de l'énergie.",
+                  "Les équipes sont nécessaires pour participer aux raids, pas pour jouer aux défis.",
                   "Quiz et énigme : réponse correcte = points selon rapidité.",
                   "Mémoire : reproduis la séquence de couleurs.",
                   "Réflexe : clique le plus vite possible quand le bouton apparaît.",
@@ -156,9 +288,33 @@ export default function DashboardPage() {
                 </p>
               )}
 
+              {challenges.length > 1 && (
+                <div className="mb-5">
+                  <label htmlFor="daily-challenge" className="mb-1.5 block text-sm text-parchment-muted">
+                    Défis du jour ({challenges.filter((item) => item.alreadyPlayed).length}/{challenges.length} joués)
+                  </label>
+                  <select
+                    id="daily-challenge"
+                    value={challenge?.id ?? ''}
+                    onChange={(event) => selectChallenge(event.target.value)}
+                    disabled={submitting}
+                    className="w-full border border-ink-line bg-ink-panel px-3 py-2.5 text-sm text-parchment focus:border-brass disabled:opacity-50"
+                  >
+                    {challenges.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.title} · {item.alreadyPlayed ? `Joué (${item.previousScore})` : 'À jouer'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {challenge && <h3 className="mb-4 font-display text-lg text-parchment">{challenge.title}</h3>}
+
               {challenge && challenge.alreadyPlayed && !attemptResult && (
                 <p className="text-sm text-teal">
-                  Déjà joué aujourd&apos;hui — score : {challenge.previousScore}. Reviens demain.
+                  Défi déjà joué — score : {challenge.previousScore}.
+                  {challenges.some((item) => !item.alreadyPlayed) && ' Tu peux encore jouer les autres défis.'}
                 </p>
               )}
 
@@ -168,15 +324,17 @@ export default function DashboardPage() {
                     Score : <span className="font-mono text-brass">{attemptResult.score}</span>
                   </p>
                   <p className="text-sm text-parchment-muted">
-                    +{attemptResult.energyEarned} énergie pour ton équipe
+                    +{attemptResult.experienceEarned} XP pour ton profil
+                    {team && <> · +{attemptResult.energyEarned} énergie pour ton équipe</>}
                   </p>
                 </div>
               )}
 
               {challenge && !challenge.alreadyPlayed && !attemptResult && (
                 <ChallengeForm
+                  key={challenge.id}
                   challenge={challenge}
-                  onSubmit={submitQuizOrRiddle}
+                  onSubmit={(answerData) => submitChallenge(challenge.id, answerData)}
                   submitting={submitting}
                   error={answerError}
                 />
