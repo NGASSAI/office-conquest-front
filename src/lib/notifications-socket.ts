@@ -3,8 +3,8 @@ import { getAccessToken } from './api';
 
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_DELAY = 2000;
+const MAX_RECONNECT_ATTEMPTS = 15;
+const RECONNECT_DELAY = 3000;
 
 export function getNotificationsSocket(): Socket {
   if (!socket) {
@@ -15,6 +15,9 @@ export function getNotificationsSocket(): Socket {
       reconnection: true,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
       reconnectionDelay: RECONNECT_DELAY,
+      reconnectionDelayMax: 10000,
+      timeout: 10000,
+      transports: ['websocket', 'polling'], // Fallback vers polling si websocket échoue
     });
 
     // Gestion des événements de connexion
@@ -35,8 +38,13 @@ export function getNotificationsSocket(): Socket {
       console.error('Notifications socket connection error:', error);
       reconnectAttempts++;
       
+      // Ne pas afficher d'erreur à l'utilisateur, juste logger
       if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         console.error('Max reconnection attempts reached for notifications socket');
+        // Réinitialiser pour permettre de nouvelles tentatives plus tard
+        setTimeout(() => {
+          reconnectAttempts = 0;
+        }, 30000);
       }
     });
 

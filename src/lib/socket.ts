@@ -3,8 +3,8 @@ import { getAccessToken } from './api';
 
 let socket: Socket | null = null;
 let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-const RECONNECT_DELAY = 2000;
+const MAX_RECONNECT_ATTEMPTS = 15;
+const RECONNECT_DELAY = 3000;
 
 // Connexion au namespace raids (temps réel) — le token est vérifié par le backend à la connexion
 // (voir RaidsGateway.handleConnection), donc une connexion sans token valide est immédiatement refusée.
@@ -17,6 +17,9 @@ export function getRaidSocket(): Socket {
       reconnection: true,
       reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
       reconnectionDelay: RECONNECT_DELAY,
+      reconnectionDelayMax: 10000,
+      timeout: 10000,
+      transports: ['websocket', 'polling'], // Fallback vers polling si websocket échoue
     });
 
     // Gestion des événements de connexion
@@ -37,8 +40,13 @@ export function getRaidSocket(): Socket {
       console.error('Raid socket connection error:', error);
       reconnectAttempts++;
       
+      // Ne pas afficher d'erreur à l'utilisateur, juste logger
       if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
         console.error('Max reconnection attempts reached for raid socket');
+        // Réinitialiser pour permettre de nouvelles tentatives plus tard
+        setTimeout(() => {
+          reconnectAttempts = 0;
+        }, 30000);
       }
     });
 

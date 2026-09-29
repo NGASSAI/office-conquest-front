@@ -236,7 +236,7 @@ export function AppHeader() {
     <header className="border-b border-ink-line sticky top-0 z-30 bg-ink">
       <div className="mx-auto max-w-4xl px-4 py-3 sm:px-6 sm:py-4 md:flex md:items-center md:justify-between md:gap-6">
         <div className="flex min-w-0 items-center justify-between gap-3 md:flex-1">
-          <Link href={user ? '/dashboard' : '/'} className="truncate font-display text-lg text-parchment touch-manipulation">
+          <Link href={user ? '/dashboard' : '/'} className="truncate font-display text-lg text-parchment">
             Conquête du Bureau
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -249,10 +249,7 @@ export function AppHeader() {
                   aria-expanded={notificationsOpen}
                   aria-controls="user-notifications"
                   title="Notifications"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setNotificationsOpen((open) => !open);
-                  }}
+                  onClick={() => setNotificationsOpen((open) => !open)}
                   className="relative flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted transition hover:border-brass hover:text-brass touch-manipulation"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -269,10 +266,7 @@ export function AppHeader() {
                     <button
                       type="button"
                       aria-label="Fermer les notifications"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setNotificationsOpen(false);
-                      }}
+                      onClick={() => setNotificationsOpen(false)}
                       className="fixed inset-0 z-40 cursor-default bg-black/25 touch-manipulation"
                     />
                     <section
@@ -291,14 +285,7 @@ export function AppHeader() {
                             <button
                               key={notification.id}
                               type="button"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                void openNotification(notification);
-                              }}
-                              onTouchEnd={(e) => {
-                                e.preventDefault();
-                                void openNotification(notification);
-                              }}
+                              onClick={() => void openNotification(notification)}
                               className="block w-full px-4 py-3 text-left transition hover:bg-ink touch-manipulation"
                             >
                               <span className="block text-sm text-brass">{notification.title}</span>
@@ -318,14 +305,7 @@ export function AppHeader() {
             {user ? (
               <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void onLogout();
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  void onLogout();
-                }}
+                onClick={() => void onLogout()}
                 aria-label="Déconnexion"
                 title="Déconnexion"
                 className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted hover:border-danger hover:text-danger sm:h-auto sm:w-auto sm:border-0 sm:text-xs touch-manipulation"
@@ -357,10 +337,7 @@ export function AppHeader() {
               aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={menuOpen}
               aria-controls="main-navigation"
-              onClick={(e) => {
-                e.preventDefault();
-                setMenuOpen((open) => !open);
-              }}
+              onClick={() => setMenuOpen((open) => !open)}
               className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment md:hidden touch-manipulation"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
@@ -382,10 +359,7 @@ export function AppHeader() {
             <Link
               key={link.href}
               href={link.href}
-              onClick={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-              }}
+              onClick={() => setMenuOpen(false)}
               className={`text-sm transition touch-manipulation ${
                 pathname === link.href
                   ? 'text-brass'
@@ -398,10 +372,7 @@ export function AppHeader() {
           {user?.role === 'ADMIN' && (
             <Link
               href="/admin"
-              onClick={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-              }}
+              onClick={() => setMenuOpen(false)}
               className={`font-mono text-xs uppercase touch-manipulation ${
                 pathname.startsWith('/admin')
                   ? 'text-brass'
@@ -414,10 +385,7 @@ export function AppHeader() {
           {!user && (
             <Link
               href="/register"
-              onClick={(e) => {
-                e.preventDefault();
-                setMenuOpen(false);
-              }}
+              onClick={() => setMenuOpen(false)}
               className="block px-3 py-2 text-sm text-brass md:px-0 md:py-0 touch-manipulation"
             >
               Créer un compte

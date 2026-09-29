@@ -39,21 +39,14 @@ function QuizGame({
   const options = (content.options as string[]) ?? [];
 
   return (
-    <div className="touch-manipulation">
+    <div>
       <p className="mb-4 text-parchment">{content.question as string}</p>
       <div className="space-y-2">
         {options.map((option) => (
           <button
             key={option}
             disabled={disabled}
-            onClick={(e) => {
-              e.preventDefault();
-              setSelected(option);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              setSelected(option);
-            }}
+            onClick={() => setSelected(option)}
             className={`block w-full border px-4 py-2.5 text-left text-sm transition disabled:opacity-50 touch-manipulation ${
               selected === option ? 'border-brass text-brass' : 'border-ink-line text-parchment hover:border-parchment-muted'
             }`}
@@ -63,14 +56,7 @@ function QuizGame({
         ))}
       </div>
       <button
-        onClick={(e) => {
-          e.preventDefault();
-          selected && onAnswer({ selectedOption: selected });
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          selected && onAnswer({ selectedOption: selected });
-        }}
+        onClick={() => selected && onAnswer({ selectedOption: selected })}
         disabled={!selected || disabled}
         className="mt-4 border border-brass bg-brass px-4 py-2 text-sm font-medium text-ink transition hover:bg-transparent hover:text-brass disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
       >
@@ -136,7 +122,7 @@ function SequenceMemoryGame({
   }
 
   return (
-    <div className="touch-manipulation">
+    <div>
       <p className="mb-4 text-sm text-parchment-muted">
         {phase === 'showing' ? 'Mémorise la séquence…' : 'Reproduis la séquence'}
       </p>
@@ -145,14 +131,7 @@ function SequenceMemoryGame({
           <button
             key={color}
             disabled={phase !== 'input' || disabled}
-            onClick={(e) => {
-              e.preventDefault();
-              onPick(color);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              onPick(color);
-            }}
+            onClick={() => onPick(color)}
             className={`h-16 border-2 transition disabled:cursor-not-allowed touch-manipulation ${MEMORY_COLOR_STYLES[color]} ${
               phase === 'showing' && sequence[highlightIndex] === color
                 ? 'border-parchment opacity-100'
@@ -195,14 +174,7 @@ export function SpotGame({
           <button
             key={`${symbol}-${index}`}
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              setSelectedIndex(index);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              setSelectedIndex(index);
-            }}
+            onClick={() => setSelectedIndex(index)}
             disabled={disabled}
             aria-label={`Choisir l’icône ${symbol}, case ${index + 1}`}
             aria-pressed={selectedIndex === index}
@@ -218,12 +190,7 @@ export function SpotGame({
       </div>
       <button
         type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          if (selectedIndex !== null) onAnswer({ selectedSymbol: symbols[selectedIndex] });
-        }}
-        onTouchEnd={(e) => {
-          e.preventDefault();
+        onClick={() => {
           if (selectedIndex !== null) onAnswer({ selectedSymbol: symbols[selectedIndex] });
         }}
         disabled={selectedIndex === null || disabled}
@@ -308,14 +275,7 @@ function PairsMemoryGame({
             <button
               key={card.id}
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                reveal(card);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                reveal(card);
-              }}
+              onClick={() => reveal(card)}
               disabled={disabled || complete || isMatched || (revealedIds.length === 2 && !isRevealed)}
               aria-label={isVisible ? `Carte ${card.symbol}` : 'Révéler une carte'}
               aria-pressed={isVisible}
@@ -355,8 +315,7 @@ function ReflexGame({
     return () => clearTimeout(timeoutRef.current);
   }, []);
 
-  function onClick(e: React.MouseEvent | React.TouchEvent) {
-    e.preventDefault();
+  function onClick() {
     if (!ready || clicked || disabled) return;
     setClicked(true);
     onAnswer({}); // le score est entièrement calculé par le serveur à partir de son horloge
@@ -369,7 +328,6 @@ function ReflexGame({
       </p>
       <button
         onClick={onClick}
-        onTouchEnd={onClick}
         disabled={!ready || clicked || disabled}
         className={`h-32 w-32 rounded-full border-2 transition disabled:cursor-not-allowed touch-manipulation ${
           ready && !clicked ? 'animate-capture border-brass bg-brass' : 'border-ink-line bg-ink-panel'

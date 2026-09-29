@@ -1,20 +1,56 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { useSpring, animated } from '@react-spring/web';
+import { Play, Pause, RotateCcw, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Zap, Shield, Target, Coins } from 'lucide-react';
+
+interface GameState {
+  isPlaying: boolean;
+  isPaused: boolean;
+  isGameOver: boolean;
+  score: number;
+  highScore: number;
+  distance: number;
+  speed: number;
+  level: number;
+}
+
+interface Player {
+  x: number;
+  y: number;
+  targetX: number;
+  targetY: number;
+  isMovingUp: boolean;
+  isMovingDown: boolean;
+  isMovingLeft: boolean;
+  isMovingRight: boolean;
+  shield: boolean;
+  powerUp: boolean;
+}
 
 interface Obstacle {
   id: number;
   x: number;
   y: number;
-  type: 'printer' | 'coffee' | 'stressed-colleague';
+  type: 'barrier' | 'laser' | 'spike';
+  width: number;
+  height: number;
 }
 
 interface Collectible {
   id: number;
   x: number;
   y: number;
-  type: 'document' | 'coffee-cup' | 'pen';
+  type: 'coin' | 'gem' | 'star';
+  value: number;
+  collected: boolean;
+}
+
+interface PowerUp {
+  id: number;
+  x: number;
+  y: number;
+  type: 'shield' | 'speed' | 'magnet';
   collected: boolean;
 }
 
@@ -24,213 +60,510 @@ interface EndlessRunnerProps {
 }
 
 export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps) {
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameover'>('menu');
-  const [score, setScore] = useState(0);
-  const [distance, setDistance] = useState(0);
-  const [speed, setSpeed] = useState(3);
-  const [playerY, setPlayerY] = useState(50);
+  const [gameState, setGameState] = useState<GameState>({
+    isPlaying: false,
+    isPaused: false,
+    isGameOver: false,
+    score: 0,
+    highScore: 0,
+    distance: 0,
+    speed: 4,
+    level: 1,
+  });
+  
+  const [player, setPlayer] = useState<Player>({
+    x: 150,
+    y: 200,
+    targetX: 150,
+    targetY: 200,
+    isMovingUp: false,
+    isMovingDown: false,
+    isMovingLeft: false,
+    isMovingRight: false,
+    shield: false,
+    powerUp: false,
+  });
+  
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [collectibles, setCollectibles] = useState<Collectible[]>([]);
-  const [canvasSize, setCanvasSize] = useState({ width: 600, height: 400 });
-  const [isMovingUp, setIsMovingUp] = useState(false);
-  const [isMovingDown, setIsMovingDown] = useState(false);
+  const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
+  const [showTutorial, setShowTutorial] = useState(true);
+  const [combo, setCombo] = useState(0);
+  const [coins, setCoins] = useState(0);
   
   const gameLoopRef = useRef<number | undefined>(undefined);
   const obstacleIdRef = useRef(0);
   const collectibleIdRef = useRef(0);
+  const powerUpIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
-  const distanceRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const playerVelocityRef = useRef(0);
+  const moveIntervalRef = useRef<number | undefined>(undefined);
+  
+  // Configuration professionnelle inspirée des jeux de plateforme
+  const CONFIG = {
+    CANVAS_HEIGHT: 450,
+    CANVAS_WIDTH: 800,
+    PLAYER_WIDTH: 45,
+    PLAYER_HEIGHT: 45,
+    PLAYER_SPEED: 6,
+    MIN_X: 50,
+    MAX_X: 700,
+    MIN_Y: 30,
+    MAX_Y: 350,
+    MOVE_INCREMENT: 12,
+    INITIAL_SPEED: 3,
+    MAX_SPEED: 10,
+    SPEED_INCREMENT: 0.0003,
+    OBSTACLE_SPAWN_RATE: 0.03, // Augmenté pour plus d'obstacles
+    COLLECTIBLE_SPAWN_RATE: 0.04, // Augmenté pour plus de pièces
+    POWER_UP_SPAWN_RATE: 0.008,
+    MIN_OBSTACLE_GAP: 180,
+    MAX_OBSTACLE_GAP: 350,
+  };
 
-  const PLAYER_HEIGHT = 50;
-  const PLAYER_WIDTH = 35;
-  const PLAYER_SPEED = 3; // Réduit pour un meilleur contrôle
-  const GRAVITY = 0.3; // Réduit pour des mouvements plus doux
-  const FRICTION = 0.85; // Augmenté pour plus de stabilité
+  // Animations
+  const titleSpring = useSpring({
+    from: { opacity: 0, transform: 'translateY(-20px)' },
+    to: { opacity: 1, transform: 'translateY(0px)' },
+    config: { tension: 300, friction: 20 },
+  });
 
-  // Responsive canvas size
+  const scoreSpring = useSpring({
+    from: { number: 0 },
+    to: { number: gameState.score },
+    config: { tension: 120, friction: 14 },
+  });
+
+  // Contrôles progressifs dans toutes les directions
+  const startMovingUp = useCallback(() => {
+    if (gameState.isPlaying && !gameState.isPaused) {
+      setPlayer(prev => ({
+        ...prev,
+        isMovingUp: true,
+        isMovingDown: false,
+        targetY: Math.max(CONFIG.MIN_Y, prev.targetY - CONFIG.MOVE_INCREMENT),
+      }));
+      setShowTutorial(false);
+    }
+  }, [gameState.isPlaying, gameState.isPaused]);
+
+  const startMovingDown = useCallback(() => {
+    if (gameState.isPlaying && !gameState.isPaused) {
+      setPlayer(prev => ({
+        ...prev,
+        isMovingDown: true,
+        isMovingUp: false,
+        targetY: Math.min(CONFIG.MAX_Y, prev.targetY + CONFIG.MOVE_INCREMENT),
+      }));
+      setShowTutorial(false);
+    }
+  }, [gameState.isPlaying, gameState.isPaused]);
+
+  const startMovingLeft = useCallback(() => {
+    if (gameState.isPlaying && !gameState.isPaused) {
+      setPlayer(prev => ({
+        ...prev,
+        isMovingLeft: true,
+        isMovingRight: false,
+        targetX: Math.max(CONFIG.MIN_X, prev.targetX - CONFIG.MOVE_INCREMENT),
+      }));
+      setShowTutorial(false);
+    }
+  }, [gameState.isPlaying, gameState.isPaused]);
+
+  const startMovingRight = useCallback(() => {
+    if (gameState.isPlaying && !gameState.isPaused) {
+      setPlayer(prev => ({
+        ...prev,
+        isMovingRight: true,
+        isMovingLeft: false,
+        targetX: Math.min(CONFIG.MAX_X, prev.targetX + CONFIG.MOVE_INCREMENT),
+      }));
+      setShowTutorial(false);
+    }
+  }, [gameState.isPlaying, gameState.isPaused]);
+
+  const stopMoving = useCallback(() => {
+    setPlayer(prev => ({
+      ...prev,
+      isMovingUp: false,
+      isMovingDown: false,
+      isMovingLeft: false,
+      isMovingRight: false,
+    }));
+  }, []);
+
+  // Mouvement continu avec interval
   useEffect(() => {
-    const updateCanvasSize = () => {
-      if (canvasRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect();
-        setCanvasSize({ width: rect.width, height: rect.height });
+    if (player.isMovingUp || player.isMovingDown || player.isMovingLeft || player.isMovingRight) {
+      moveIntervalRef.current = window.setInterval(() => {
+        setPlayer(prev => {
+          let newTargetX = prev.targetX;
+          let newTargetY = prev.targetY;
+          
+          if (prev.isMovingUp) {
+            newTargetY = Math.max(CONFIG.MIN_Y, prev.targetY - CONFIG.PLAYER_SPEED);
+          } else if (prev.isMovingDown) {
+            newTargetY = Math.min(CONFIG.MAX_Y, prev.targetY + CONFIG.PLAYER_SPEED);
+          }
+          
+          if (prev.isMovingLeft) {
+            newTargetX = Math.max(CONFIG.MIN_X, prev.targetX - CONFIG.PLAYER_SPEED);
+          } else if (prev.isMovingRight) {
+            newTargetX = Math.min(CONFIG.MAX_X, prev.targetX + CONFIG.PLAYER_SPEED);
+          }
+          
+          return { ...prev, targetX: newTargetX, targetY: newTargetY };
+        });
+      }, 50);
+    } else {
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
+      }
+    }
+
+    return () => {
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
       }
     };
-    
-    updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => window.removeEventListener('resize', updateCanvasSize);
-  }, []);
+  }, [player.isMovingUp, player.isMovingDown, player.isMovingLeft, player.isMovingRight]);
 
-  const spawnObstacle = useCallback(() => {
-    const types: Obstacle['type'][] = ['printer', 'coffee', 'stressed-colleague'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    
-    setObstacles(prev => [...prev, {
-      id: obstacleIdRef.current++,
-      x: canvasSize.width,
-      y: Math.random() * (canvasSize.height - PLAYER_HEIGHT - 60) + 30,
-      type,
-    }]);
-  }, [canvasSize.width, canvasSize.height]);
+  // Interpolation fluide de la position du joueur
+  useEffect(() => {
+    if (!gameState.isPlaying || gameState.isPaused) return;
 
-  const spawnCollectible = useCallback(() => {
-    const types: Collectible['type'][] = ['document', 'coffee-cup', 'pen'];
-    const type = types[Math.floor(Math.random() * types.length)];
-    
-    setCollectibles(prev => [...prev, {
-      id: collectibleIdRef.current++,
-      x: canvasSize.width,
-      y: Math.random() * (canvasSize.height - PLAYER_HEIGHT - 60) + 30,
-      type,
-      collected: false,
-    }]);
-  }, [canvasSize.width, canvasSize.height]);
+    const animationInterval = setInterval(() => {
+      setPlayer(prev => {
+        const diffX = prev.targetX - prev.x;
+        const diffY = prev.targetY - prev.y;
+        
+        let newX = prev.x;
+        let newY = prev.y;
+        
+        if (Math.abs(diffX) > 1) {
+          newX = prev.x + diffX * 0.15;
+        } else {
+          newX = prev.targetX;
+        }
+        
+        if (Math.abs(diffY) > 1) {
+          newY = prev.y + diffY * 0.15;
+        } else {
+          newY = prev.targetY;
+        }
+        
+        return { ...prev, x: newX, y: newY };
+      });
+    }, 16);
 
-  const moveUp = useCallback(() => {
-    if (gameState === 'playing') {
-      setIsMovingUp(true);
-      playerVelocityRef.current = -PLAYER_SPEED;
-    }
-  }, [gameState]);
-
-  const moveDown = useCallback(() => {
-    if (gameState === 'playing') {
-      setIsMovingDown(true);
-      playerVelocityRef.current = PLAYER_SPEED;
-    }
-  }, [gameState]);
-
-  const stopMove = useCallback(() => {
-    setIsMovingUp(false);
-    setIsMovingDown(false);
-  }, []);
+    return () => clearInterval(animationInterval);
+  }, [gameState.isPlaying, gameState.isPaused]);
 
   const startGame = useCallback(() => {
-    setGameState('playing');
-    setScore(0);
-    setDistance(0);
-    setSpeed(3);
-    setPlayerY(50);
+    setGameState({
+      isPlaying: true,
+      isPaused: false,
+      isGameOver: false,
+      score: 0,
+      highScore: gameState.highScore,
+      distance: 0,
+      speed: CONFIG.INITIAL_SPEED,
+      level: 1,
+    });
+    setPlayer({
+      x: 150,
+      y: CONFIG.CANVAS_HEIGHT / 2,
+      targetX: 150,
+      targetY: CONFIG.CANVAS_HEIGHT / 2,
+      isMovingUp: false,
+      isMovingDown: false,
+      isMovingLeft: false,
+      isMovingRight: false,
+      shield: false,
+      powerUp: false,
+    });
     setObstacles([]);
     setCollectibles([]);
+    setPowerUps([]);
+    setCombo(0);
+    setCoins(0);
     obstacleIdRef.current = 0;
     collectibleIdRef.current = 0;
+    powerUpIdRef.current = 0;
     lastSpawnRef.current = 0;
-    distanceRef.current = 0;
-  }, []);
+    setShowTutorial(true);
+  }, [gameState.highScore]);
 
   const pauseGame = useCallback(() => {
-    setGameState('paused');
+    setGameState(prev => ({ ...prev, isPaused: true }));
   }, []);
 
   const resumeGame = useCallback(() => {
-    setGameState('playing');
+    setGameState(prev => ({ ...prev, isPaused: false }));
   }, []);
 
   const endGame = useCallback(() => {
-    setGameState('gameover');
-    onGameOver?.(score, distance);
-  }, [score, distance, onGameOver]);
+    setGameState(prev => ({
+      ...prev,
+      isPlaying: false,
+      isGameOver: true,
+      highScore: Math.max(prev.score, prev.highScore),
+    }));
+    onGameOver?.(gameState.score, gameState.distance);
+  }, [gameState.score, gameState.distance, onGameOver]);
 
-  // Game loop
+  // Game loop principal
   useEffect(() => {
-    if (gameState !== 'playing') {
+    if (!gameState.isPlaying || gameState.isPaused) {
       if (gameLoopRef.current) {
         cancelAnimationFrame(gameLoopRef.current);
       }
       return;
     }
 
+    console.log('Game loop started, speed:', gameState.speed);
+
     const gameLoop = (timestamp: number) => {
-      // Update player position with physics
-      setPlayerY(prev => {
-        let newY = prev + playerVelocityRef.current;
+      console.log('Game loop tick, timestamp:', timestamp, 'lastSpawn:', lastSpawnRef.current);
+      
+      // Update game state
+      setGameState(prev => {
+        const newSpeed = Math.min(CONFIG.MAX_SPEED, prev.speed + CONFIG.SPEED_INCREMENT);
+        const newDistance = prev.distance + newSpeed * 0.05;
+        const newLevel = Math.floor(newDistance / 200) + 1;
         
-        // Apply friction when not moving
-        if (!isMovingUp && !isMovingDown) {
-          playerVelocityRef.current *= FRICTION;
-          newY += playerVelocityRef.current;
+        console.log('Speed:', newSpeed, 'Distance:', newDistance);
+        
+        // Spawn obstacles avec logique métier améliorée
+        const gap = CONFIG.MIN_OBSTACLE_GAP + Math.random() * (CONFIG.MAX_OBSTACLE_GAP - CONFIG.MIN_OBSTACLE_GAP);
+        const requiredTime = gap / newSpeed * 1000;
+        
+        console.log('Gap:', gap, 'Required time:', requiredTime, 'Time since last spawn:', timestamp - lastSpawnRef.current);
+        
+        if (timestamp - lastSpawnRef.current > requiredTime) {
+          console.log('SPAWNING OBSTACLE');
+          
+          const obstacleTypes: Obstacle['type'][] = ['barrier', 'laser', 'spike'];
+          const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+          
+          const sizes = {
+            barrier: { width: 35, height: 50 },
+            laser: { width: 15, height: 100 },
+            spike: { width: 30, height: 40 },
+          };
+          
+          const size = sizes[type];
+          
+          // Position Y aléatoire pour varier les défis
+          const randomY = CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - size.height);
+          
+          console.log('Creating obstacle at x:', CONFIG.CANVAS_WIDTH, 'y:', randomY);
+          
+          setObstacles(obs => {
+            const newObstacle = {
+              id: obstacleIdRef.current++,
+              x: CONFIG.CANVAS_WIDTH,
+              y: randomY,
+              type,
+              width: size.width,
+              height: size.height,
+            };
+            console.log('Obstacles count:', obs.length + 1);
+            return [...obs, newObstacle];
+          });
+          
+          // Spawn collectibles (pièces) inspiré des jeux de plateforme
+          if (Math.random() < CONFIG.COLLECTIBLE_SPAWN_RATE) {
+            console.log('SPAWNING COLLECTIBLE');
+            
+            const collectibleTypes: Collectible['type'][] = ['coin', 'gem', 'star'];
+            const cType = collectibleTypes[Math.floor(Math.random() * collectibleTypes.length)];
+            
+            const values = {
+              coin: 10,
+              gem: 25,
+              star: 50,
+            };
+            
+            setCollectibles(cols => {
+              const newCollectible = {
+                id: collectibleIdRef.current++,
+                x: CONFIG.CANVAS_WIDTH + Math.random() * 150,
+                y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
+                type: cType,
+                value: values[cType],
+                collected: false,
+              };
+              console.log('Collectibles count:', cols.length + 1);
+              return [...cols, newCollectible];
+            });
+          }
+          
+          // Spawn power-up occasionnellement
+          if (Math.random() < CONFIG.POWER_UP_SPAWN_RATE) {
+            console.log('SPAWNING POWERUP');
+            
+            const powerUpTypes: PowerUp['type'][] = ['shield', 'speed', 'magnet'];
+            const pType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+            
+            setPowerUps(powers => {
+              const newPowerUp = {
+                id: powerUpIdRef.current++,
+                x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
+                y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 40),
+                type: pType,
+                collected: false,
+              };
+              console.log('Powerups count:', powers.length + 1);
+              return [...powers, newPowerUp];
+            });
+          }
+          
+          lastSpawnRef.current = timestamp;
         }
         
-        // Keep player within bounds
-        newY = Math.max(20, Math.min(canvasSize.height - PLAYER_HEIGHT - 20, newY));
-        
-        return newY;
+        return {
+          ...prev,
+          speed: newSpeed,
+          distance: newDistance,
+          level: newLevel,
+        };
       });
-
-      setDistance(prev => {
-        const newDistance = prev + speed * 0.08;
-        distanceRef.current = newDistance;
-        
-        // Augmenter la vitesse progressivement plus lentement
-        if (newDistance > 0 && newDistance % 150 < 1) {
-          setSpeed(s => Math.min(10, s + 0.3));
-        }
-        
-        return newDistance;
-      });
-
-      // Spawn obstacles avec plus d'espace entre eux
-      const spawnInterval = 2500 / (speed / 3);
-      if (timestamp - lastSpawnRef.current > spawnInterval) {
-        spawnObstacle();
-        lastSpawnRef.current = timestamp;
-      }
-
-      // Spawn collectibles
-      if (Math.random() < 0.02) {
-        spawnCollectible();
-      }
 
       // Move obstacles
       setObstacles(prev => {
-        const filtered = prev.filter(obs => obs.x > -60);
-        return filtered.map(obs => ({ ...obs, x: obs.x - speed * 0.8 }));
+        const filtered = prev.filter(obs => obs.x > -80);
+        const moved = filtered.map(obs => ({ ...obs, x: obs.x - gameState.speed }));
+        console.log('Moving obstacles, count:', moved.length);
+        return moved;
       });
 
       // Move collectibles
       setCollectibles(prev => {
-        const filtered = prev.filter(col => col.x > -60 && !col.collected);
-        return filtered.map(col => ({ ...col, x: col.x - speed * 0.8 }));
+        const filtered = prev.filter(c => c.x > -80 && !c.collected);
+        const moved = filtered.map(c => ({ ...c, x: c.x - gameState.speed }));
+        console.log('Moving collectibles, count:', moved.length);
+        return moved;
       });
 
-      // Collision detection avec hitbox plus précise
+      // Move power-ups
+      setPowerUps(prev => {
+        const filtered = prev.filter(p => p.x > -80 && !p.collected);
+        const moved = filtered.map(p => ({ ...p, x: p.x - gameState.speed }));
+        return moved;
+      });
+
+      // Collision detection avec obstacles
       setObstacles(prev => {
+        const playerHitbox = {
+          x: player.x + 8,
+          y: player.y + 8,
+          width: CONFIG.PLAYER_WIDTH - 16,
+          height: CONFIG.PLAYER_HEIGHT - 16,
+        };
+        
         for (const obs of prev) {
-          const playerX = canvasSize.width * 0.15;
-          const hitboxPadding = 10;
+          const obsHitbox = {
+            x: obs.x + 5,
+            y: obs.y + 5,
+            width: obs.width - 10,
+            height: obs.height - 10,
+          };
+          
           if (
-            obs.x < playerX + PLAYER_WIDTH - hitboxPadding &&
-            obs.x > playerX + hitboxPadding &&
-            Math.abs(obs.y - playerY) < PLAYER_HEIGHT - hitboxPadding
+            playerHitbox.x < obsHitbox.x + obsHitbox.width &&
+            playerHitbox.x + playerHitbox.width > obsHitbox.x &&
+            playerHitbox.y < obsHitbox.y + obsHitbox.height &&
+            playerHitbox.y + playerHitbox.height > obsHitbox.y
           ) {
-            endGame();
-            return prev;
+            if (player.shield) {
+              // Shield protects, remove obstacle
+              return prev.filter(o => o.id !== obs.id);
+            } else {
+              endGame();
+              return prev;
+            }
           }
         }
         return prev;
       });
 
-      // Collectible detection
+      // Collectible detection (pièces inspiré des jeux de plateforme)
       setCollectibles(prev => {
-        let newScore = score;
-        const updated = prev.map(col => {
-          const playerX = canvasSize.width * 0.15;
-          if (
-            !col.collected &&
-            col.x < playerX + PLAYER_WIDTH &&
-            col.x > playerX &&
-            Math.abs(col.y - playerY) < PLAYER_HEIGHT
-          ) {
-            newScore += 10;
+        let newScore = gameState.score;
+        let newCoins = coins;
+        let newCombo = combo;
+        
+        const updated = prev.map(c => {
+          const distance = Math.sqrt(
+            Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - c.x, 2) +
+            Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - c.y, 2)
+          );
+          
+          if (!c.collected && distance < 40) {
+            console.log('COLLECTIBLE COLLECTED:', c.type);
+            newCombo++;
+            newCoins++;
+            newScore += c.value + (newCombo * 2);
+            
             onScoreUpdate?.(newScore);
-            return { ...col, collected: true };
+            setCombo(newCombo);
+            setCoins(newCoins);
+            return { ...c, collected: true };
           }
-          return col;
+          return c;
         });
-        setScore(newScore);
+        
+        setGameState(prev => ({ ...prev, score: newScore }));
+        return updated;
+      });
+
+      // Power-up detection
+      setPowerUps(prev => {
+        const updated = prev.map(p => {
+          const distance = Math.sqrt(
+            Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - p.x, 2) +
+            Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - p.y, 2)
+          );
+          
+          if (!p.collected && distance < 45) {
+            console.log('POWERUP COLLECTED:', p.type);
+            if (p.type === 'shield') {
+              setPlayer(prev => ({ ...prev, shield: true }));
+              setTimeout(() => {
+                setPlayer(prev => ({ ...prev, shield: false }));
+              }, 5000);
+            } else if (p.type === 'speed') {
+              setGameState(prev => ({ ...prev, speed: Math.min(CONFIG.MAX_SPEED, prev.speed + 2) }));
+              setTimeout(() => {
+                setGameState(prev => ({ ...prev, speed: Math.max(CONFIG.INITIAL_SPEED, prev.speed - 2) }));
+              }, 3000);
+            } else if (p.type === 'magnet') {
+              // Magnet attire les pièces proches
+              setCollectibles(cols => {
+                return cols.map(c => {
+                  if (!c.collected) {
+                    const dist = Math.sqrt(
+                      Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - c.x, 2) +
+                      Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - c.y, 2)
+                    );
+                    if (dist < 150) {
+                      return { ...c, x: c.x + (player.x - c.x) * 0.1, y: c.y + (player.y - c.y) * 0.1 };
+                    }
+                  }
+                  return c;
+                });
+              });
+              setTimeout(() => {
+                // Arrêter l'effet magnétique
+              }, 5000);
+            }
+            return { ...p, collected: true };
+          }
+          return p;
+        });
+        
         return updated;
       });
 
@@ -244,286 +577,442 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameState, speed, playerY, score, isMovingUp, isMovingDown, canvasSize.height, spawnObstacle, spawnCollectible, endGame, onScoreUpdate]);
+  }, [gameState.isPlaying, gameState.isPaused, gameState.speed, gameState.score, player.x, player.y, player.shield, combo, coins, endGame, onScoreUpdate]);
 
-  // Keyboard controls
+  // Controls
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        if (gameState === 'menu' || gameState === 'gameover') {
+        if (!gameState.isPlaying) {
           startGame();
-        } else if (gameState === 'paused') {
+        } else if (gameState.isPaused) {
           resumeGame();
         }
       }
-      if (e.code === 'Escape' && gameState === 'playing') {
+      if (e.code === 'Escape' && gameState.isPlaying) {
         e.preventDefault();
         pauseGame();
       }
-      if (gameState === 'playing') {
-        if (e.code === 'ArrowUp' || e.code === 'KeyW') {
-          e.preventDefault();
-          moveUp();
+      if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+        e.preventDefault();
+        if (gameState.isPlaying && !gameState.isPaused) {
+          startMovingUp();
         }
-        if (e.code === 'ArrowDown' || e.code === 'KeyS') {
-          e.preventDefault();
-          moveDown();
+      }
+      if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+        e.preventDefault();
+        if (gameState.isPlaying && !gameState.isPaused) {
+          startMovingDown();
+        }
+      }
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        e.preventDefault();
+        if (gameState.isPlaying && !gameState.isPaused) {
+          startMovingLeft();
+        }
+      }
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        e.preventDefault();
+        if (gameState.isPlaying && !gameState.isPaused) {
+          startMovingRight();
         }
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (gameState === 'playing') {
-        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') {
-          stopMove();
-        }
+      const movementKeys = ['ArrowUp', 'KeyW', 'ArrowDown', 'KeyS', 'ArrowLeft', 'KeyA', 'ArrowRight', 'KeyD'];
+      if (movementKeys.includes(e.code)) {
+        e.preventDefault();
+        stopMoving();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [gameState, startGame, moveUp, moveDown, stopMove, pauseGame, resumeGame]);
+  }, [gameState.isPlaying, gameState.isPaused, startGame, resumeGame, pauseGame, startMovingUp, startMovingDown, startMovingLeft, startMovingRight, stopMoving]);
 
-  // Touch controls for mobile
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      if (gameState === 'menu' || gameState === 'gameover') {
-        e.preventDefault();
-        startGame();
-      } else if (gameState === 'paused') {
-        e.preventDefault();
-        resumeGame();
-      }
+  const getObstacleIcon = (type: Obstacle['type']) => {
+    const icons = {
+      barrier: '🚧',
+      laser: '⚡',
+      spike: '📌',
     };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (gameState !== 'playing' || !canvasRef.current) return;
-      
-      e.preventDefault(); // Empêcher le scroll pendant le jeu
-      const touch = e.touches[0];
-      const rect = canvasRef.current.getBoundingClientRect();
-      const touchY = touch.clientY - rect.top;
-      const centerY = rect.height / 2;
-      
-      if (touchY < centerY - 50) {
-        moveUp();
-      } else if (touchY > centerY + 50) {
-        moveDown();
-      }
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (gameState === 'playing') {
-        e.preventDefault();
-        stopMove();
-      }
-    };
-
-    const canvas = canvasRef.current;
-    if (canvas) {
-      canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-      return () => {
-        canvas.removeEventListener('touchstart', handleTouchStart);
-        canvas.removeEventListener('touchmove', handleTouchMove);
-        canvas.removeEventListener('touchend', handleTouchEnd);
-      };
-    }
-  }, [gameState, startGame, moveUp, moveDown, stopMove, resumeGame]);
-
-  const getEmoji = (type: Obstacle['type'] | Collectible['type']) => {
-    const emojis: Record<string, string> = {
-      printer: '🖨️',
-      coffee: '☕',
-      'stressed-colleague': '😰',
-      document: '📄',
-      'coffee-cup': '☕',
-      pen: '🖊️',
-    };
-    return emojis[type] || '❓';
+    return icons[type];
   };
 
-  if (gameState === 'menu') {
-    return (
-      <div className="flex flex-col items-center justify-center gap-6 p-4 sm:p-8 text-center">
-        <motion.div
-          initial={{ scale: 0, rotate: -180 }}
-          animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', duration: 0.8 }}
-          className="text-6xl sm:text-7xl"
-        >
-          🏃‍♂️
-        </motion.div>
-        <h2 className="font-display text-2xl sm:text-3xl text-parchment">Le Bureau Infini</h2>
-        <p className="text-sm text-parchment-muted max-w-md">
-          Évite les obstacles du bureau et collecte les objets utiles !<br />
-          <span className="hidden sm:inline">Appuie sur ESPACE ou clique pour sauter.</span>
-          <span className="sm:hidden">Touche l'écran pour sauter.</span>
-        </p>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={startGame}
-          className="border border-brass bg-brass px-8 py-3 font-medium text-ink transition hover:bg-transparent hover:text-brass"
-        >
-          Commencer
-        </motion.button>
-      </div>
-    );
-  }
+  const getCollectibleIcon = (type: Collectible['type']) => {
+    const icons = {
+      coin: '🪙',
+      gem: '💎',
+      star: '⭐',
+    };
+    return icons[type];
+  };
 
-  if (gameState === 'paused') {
+  const getPowerUpIcon = (type: PowerUp['type']) => {
+    const icons = {
+      shield: '🛡️',
+      speed: '🚀',
+      magnet: '🧲',
+    };
+    return icons[type];
+  };
+
+  // Menu screen
+  if (!gameState.isPlaying && !gameState.isGameOver) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 p-8 text-center">
-        <h2 className="font-display text-2xl text-parchment">Pause</h2>
-        <p className="text-sm text-parchment-muted">Score: {score} · Distance: {Math.floor(distance)}m</p>
-        <div className="flex gap-4">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={resumeGame}
-            className="border border-brass bg-brass px-6 py-2 font-medium text-ink transition hover:bg-transparent hover:text-brass"
+      <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
+        <animated.div style={titleSpring}>
+          <div className="mb-8">
+            <div className="text-8xl mb-4">🏃‍♂️</div>
+            <h1 className="font-display text-5xl font-bold text-parchment mb-2">
+              Bureau Infini
+            </h1>
+            <p className="text-parchment-muted text-lg">
+              Collecte les pièces, évite les obstacles
+            </p>
+          </div>
+          
+          <div className="flex flex-col gap-3 mb-8">
+            <div className="flex items-center justify-center gap-3 text-parchment-muted">
+              <ArrowUp className="w-5 h-5 text-brass" />
+              <ArrowDown className="w-5 h-5 text-brass" />
+              <ArrowLeft className="w-5 h-5 text-brass" />
+              <ArrowRight className="w-5 h-5 text-brass" />
+              <span className="text-sm">Maintiens pour te déplacer</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 text-parchment-muted">
+              <Coins className="w-5 h-5 text-brass" />
+              <span className="text-sm">Collecte les pièces et gemmes</span>
+            </div>
+            <div className="flex items-center justify-center gap-3 text-parchment-muted">
+              <Target className="w-5 h-5 text-brass" />
+              <span className="text-sm">Évite les obstacles</span>
+            </div>
+          </div>
+          
+          <button
+            onClick={startGame}
+            className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 mx-auto touch-manipulation"
           >
-            Reprendre
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={endGame}
-            className="border border-ink-line px-6 py-2 text-parchment transition hover:border-brass hover:text-brass"
-          >
-            Quitter
-          </motion.button>
-        </div>
+            <Play className="w-6 h-6" />
+            <span>Commencer</span>
+          </button>
+          
+          {gameState.highScore > 0 && (
+            <div className="mt-8 flex items-center justify-center gap-2 text-parchment-muted">
+              <Trophy className="w-5 h-5 text-brass" />
+              <span className="font-mono">Meilleur score: {gameState.highScore}</span>
+            </div>
+          )}
+        </animated.div>
       </div>
     );
   }
 
-  if (gameState === 'gameover') {
+  // Game over screen
+  if (gameState.isGameOver) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 p-8 text-center">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-6xl"
-        >
-          😵
-        </motion.div>
-        <h2 className="font-display text-2xl text-parchment">Game Over!</h2>
-        <div className="space-y-2">
-          <p className="font-mono text-lg text-brass">Score: {score}</p>
-          <p className="text-sm text-parchment-muted">Distance: {Math.floor(distance)}m</p>
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={startGame}
-          className="border border-brass bg-brass px-8 py-3 font-medium text-ink transition hover:bg-transparent hover:text-brass"
-        >
-          Rejouer
-        </motion.button>
+      <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
+        <animated.div style={titleSpring}>
+          <div className="mb-8">
+            <div className="text-8xl mb-4">😵</div>
+            <h2 className="font-display text-4xl font-bold text-parchment mb-4">
+              Game Over
+            </h2>
+          </div>
+          
+          <div className="bg-ink-panel rounded-2xl p-6 mb-8 border border-ink-line">
+            <div className="grid grid-cols-2 gap-6 mb-4">
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
+                <p className="font-mono text-3xl text-brass">{gameState.score}</p>
+              </div>
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
+                <p className="font-mono text-3xl text-teal">{coins}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Distance</p>
+                <p className="font-mono text-2xl text-parchment">{Math.floor(gameState.distance)}m</p>
+              </div>
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Record</p>
+                <p className="font-mono text-2xl text-brass">{gameState.highScore}</p>
+              </div>
+            </div>
+          </div>
+          
+          {gameState.score >= gameState.highScore && gameState.score > 0 && (
+            <div className="mb-8 flex items-center justify-center gap-2 text-teal font-semibold">
+              <Trophy className="w-6 h-6" />
+              <span>Nouveau record !</span>
+            </div>
+          )}
+          
+          <button
+            onClick={startGame}
+            className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 mx-auto touch-manipulation"
+          >
+            <RotateCcw className="w-6 h-6" />
+            <span>Rejouer</span>
+          </button>
+        </animated.div>
       </div>
     );
   }
 
+  // Paused screen
+  if (gameState.isPaused) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
+        <animated.div style={titleSpring}>
+          <div className="mb-8">
+            <div className="text-8xl mb-4">⏸️</div>
+            <h2 className="font-display text-4xl font-bold text-parchment mb-4">
+              Pause
+            </h2>
+          </div>
+          
+          <div className="bg-ink-panel rounded-2xl p-6 mb-8 border border-ink-line">
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
+                <p className="font-mono text-3xl text-brass">{gameState.score}</p>
+              </div>
+              <div>
+                <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
+                <p className="font-mono text-3xl text-teal">{coins}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex gap-4">
+            <button
+              onClick={resumeGame}
+              className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-8 py-4 rounded-xl text-lg shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 touch-manipulation"
+            >
+              <Play className="w-5 h-5" />
+              <span>Reprendre</span>
+            </button>
+            <button
+              onClick={endGame}
+              className="border-2 border-ink-line text-parchment px-8 py-4 rounded-xl text-lg hover:border-brass hover:text-brass transition-all flex items-center gap-3 touch-manipulation"
+            >
+              <RotateCcw className="w-5 h-5" />
+              <span>Quitter</span>
+            </button>
+          </div>
+        </animated.div>
+      </div>
+    );
+  }
+
+  // Game screen
   return (
     <div className="relative">
-      {/* Header */}
-      <div className="mb-4 flex justify-between font-mono text-sm">
-        <span className="text-parchment">Score: {score}</span>
-        <span className="text-parchment-muted">{Math.floor(distance)}m</span>
-        <button
-          onClick={pauseGame}
-          className="text-parchment-muted hover:text-brass"
-        >
-          ⏸️
-        </button>
+      {/* HUD professionnel */}
+      <div className="flex justify-between items-center mb-6 px-4">
+        <div className="flex gap-6">
+          <div className="text-left">
+            <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
+            <animated.p className="font-mono text-2xl text-brass font-bold">
+              {scoreSpring.number.to(n => Math.round(n))}
+            </animated.p>
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
+            <p className="font-mono text-2xl text-teal font-bold">{coins}</p>
+          </div>
+          <div className="text-left">
+            <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Distance</p>
+            <p className="font-mono text-xl text-parchment font-bold">{Math.floor(gameState.distance)}m</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {combo > 0 && (
+            <div className="flex items-center gap-2 bg-brass/20 px-3 py-1 rounded-full border border-brass">
+              <Zap className="w-4 h-4 text-brass" />
+              <span className="font-mono text-sm text-brass">x{combo}</span>
+            </div>
+          )}
+          {player.shield && (
+            <div className="flex items-center gap-2 bg-teal/20 px-3 py-1 rounded-full border border-teal">
+              <Shield className="w-4 h-4 text-teal" />
+              <span className="text-sm text-teal">Shield</span>
+            </div>
+          )}
+          <button
+            onClick={pauseGame}
+            className="p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
+          >
+            <Pause className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
-      {/* Game Canvas */}
+      {/* Game Canvas moderne */}
       <div
         ref={canvasRef}
-        className="relative mx-auto h-[350px] w-full max-w-[600px] overflow-hidden rounded-lg border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink touch-none"
+        className="relative mx-auto h-[450px] w-full max-w-[900px] overflow-hidden rounded-2xl border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink touch-none select-none shadow-2xl"
         role="button"
         tabIndex={0}
       >
-        {/* Background decorations */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 text-4xl">🖨️</div>
-          <div className="absolute top-20 right-20 text-3xl">☕</div>
-          <div className="absolute bottom-20 left-20 text-3xl">📄</div>
-          <div className="absolute bottom-10 right-10 text-4xl">💻</div>
+        {/* Background moderne */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 right-0 h-1/4 bg-gradient-to-b from-brass/5 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-ink to-transparent" />
+          
+          {/* Grille de fond stylisée */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="grid grid-cols-10 h-full">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="border-r border-parchment/20" />
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Floor with pattern */}
-        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-r from-brass via-teal to-brass" />
-        <div className="absolute bottom-2 left-0 right-0 h-8 bg-gradient-to-t from-ink to-transparent" />
-
-        {/* Player */}
-        <motion.div
-          className="absolute flex h-[50px] w-[35px] items-center justify-center text-3xl sm:text-4xl"
-          style={{ left: '15%', top: `${playerY}px` }}
-          animate={{ y: playerY }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+        {/* Player moderne */}
+        <div
+          className="absolute flex items-center justify-center transition-transform duration-100"
+          style={{
+            left: `${player.x}px`,
+            top: `${player.y}px`,
+            width: `${CONFIG.PLAYER_WIDTH}px`,
+            height: `${CONFIG.PLAYER_HEIGHT}px`,
+          }}
         >
-          🏃‍♂️
-        </motion.div>
+          <div className="relative">
+            {player.shield && (
+              <div className="absolute -inset-3 rounded-full border-4 border-teal opacity-60 animate-pulse" />
+            )}
+            <div className="text-4xl">🏃‍♂️</div>
+          </div>
+        </div>
 
-        {/* Obstacles */}
+        {/* Obstacles modernes */}
         {obstacles.map(obs => (
-          <motion.div
+          <div
             key={obs.id}
-            className="absolute flex h-[45px] w-[45px] items-center justify-center text-2xl sm:text-3xl shadow-lg"
-            style={{ left: `${obs.x}px`, top: `${obs.y}px` }}
-            animate={{ rotate: [0, -5, 5, 0] }}
-            transition={{ duration: 0.5, repeat: Infinity }}
+            className="absolute flex items-center justify-center rounded-lg shadow-lg transition-all"
+            style={{
+              left: `${obs.x}px`,
+              top: `${obs.y}px`,
+              width: `${obs.width}px`,
+              height: `${obs.height}px`,
+              background: obs.type === 'laser' ? 'linear-gradient(180deg, #C9A227, #B4462F)' : 'rgba(180, 70, 47, 0.85)',
+              border: '2px solid #C9A227',
+            }}
           >
-            {getEmoji(obs.type)}
-          </motion.div>
+            <div className="text-2xl">{getObstacleIcon(obs.type)}</div>
+          </div>
         ))}
 
-        {/* Collectibles */}
-        {collectibles.map(col => (
-          <motion.div
-            key={col.id}
-            className="absolute flex h-[28px] w-[28px] items-center justify-center text-xl sm:text-2xl"
-            style={{ left: `${col.x}px`, top: `${col.y}px` }}
-            animate={col.collected ? { scale: 0, opacity: 0 } : { scale: [1, 1.3, 1], rotate: [0, 360] }}
-            transition={{ duration: 0.6, repeat: Infinity }}
+        {/* Collectibles (pièces inspiré des jeux de plateforme) */}
+        {collectibles.map(c => (
+          <div
+            key={c.id}
+            className="absolute flex items-center justify-center rounded-full shadow-lg transition-all animate-bounce"
+            style={{
+              left: `${c.x}px`,
+              top: `${c.y}px`,
+              width: '35px',
+              height: '35px',
+              background: c.type === 'coin' ? 'rgba(201, 162, 39, 0.9)' : c.type === 'gem' ? 'rgba(47, 111, 107, 0.9)' : 'rgba(180, 70, 47, 0.9)',
+              border: '2px solid #EDEAE0',
+            }}
           >
-            {getEmoji(col.type)}
-          </motion.div>
+            <div className="text-xl">{getCollectibleIcon(c.type)}</div>
+          </div>
         ))}
+
+        {/* Power-ups modernes */}
+        {powerUps.map(p => (
+          <div
+            key={p.id}
+            className="absolute flex items-center justify-center rounded-full shadow-lg transition-all animate-pulse"
+            style={{
+              left: `${p.x}px`,
+              top: `${p.y}px`,
+              width: '40px',
+              height: '40px',
+              background: p.type === 'shield' ? 'rgba(47, 111, 107, 0.9)' : p.type === 'speed' ? 'rgba(201, 162, 39, 0.9)' : 'rgba(180, 70, 47, 0.9)',
+              border: '2px solid #EDEAE0',
+            }}
+          >
+            <div className="text-xl">{getPowerUpIcon(p.type)}</div>
+          </div>
+        ))}
+
+        {/* Tutorial overlay moderne */}
+        {showTutorial && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-ink-panel border-2 border-brass px-8 py-4 rounded-2xl shadow-2xl">
+              <div className="flex items-center gap-3">
+                <Zap className="w-6 h-6 text-brass" />
+                <p className="font-semibold text-lg text-parchment">Utilise les flèches pour te déplacer</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Instructions */}
-      <p className="mt-4 text-center text-xs text-parchment-muted">
-        <span className="hidden sm:inline">Flèches HAUT/BAS ou W/S pour bouger · ESPACE pour pause</span>
-        <span className="sm:hidden">Touche le haut/bas de l'écran pour bouger</span>
-      </p>
+      {/* Contrôles mobile D-pad */}
+      <div className="mt-6 flex flex-col items-center gap-4 sm:hidden">
+        <button
+          onTouchStart={(e) => { e.preventDefault(); startMovingUp(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
+          className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+        >
+          <ArrowUp className="w-6 h-6 text-brass" />
+        </button>
+        <div className="flex gap-4">
+          <button
+            onTouchStart={(e) => { e.preventDefault(); startMovingLeft(); }}
+            onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
+            className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+          >
+            <ArrowLeft className="w-6 h-6 text-brass" />
+          </button>
+          <button
+            onTouchStart={(e) => { e.preventDefault(); startMovingRight(); }}
+            onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
+            className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+          >
+            <ArrowRight className="w-6 h-6 text-brass" />
+          </button>
+        </div>
+        <button
+          onTouchStart={(e) => { e.preventDefault(); startMovingDown(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
+          className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+        >
+          <ArrowDown className="w-6 h-6 text-brass" />
+        </button>
+      </div>
 
-      {/* Mobile Controls */}
-      <div className="mt-4 flex justify-center gap-4 sm:hidden">
-        <button
-          onTouchStart={(e) => { e.preventDefault(); moveUp(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopMove(); }}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40"
-        >
-          ⬆️
-        </button>
-        <button
-          onTouchStart={(e) => { e.preventDefault(); moveDown(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopMove(); }}
-          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40"
-        >
-          ⬇️
-        </button>
+      {/* Instructions desktop */}
+      <div className="mt-6 text-center hidden sm:block">
+        <div className="flex items-center justify-center gap-6 text-sm text-parchment-muted">
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-ink-panel rounded-md border border-ink-line font-mono text-xs">FLÈCHES</span>
+            <span>pour se déplacer</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-ink-panel rounded-md border border-ink-line font-mono text-xs">ÉCHAP</span>
+            <span>pour pause</span>
+          </div>
+        </div>
       </div>
     </div>
   );

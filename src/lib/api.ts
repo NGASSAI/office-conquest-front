@@ -129,8 +129,23 @@ function extractErrorMessage(value: unknown): string | null {
 
 // Extrait un message affichable à l'utilisateur, quel que soit le format renvoyé par Nest
 export function getApiErrorMessage(error: unknown, fallback = 'Une erreur est survenue'): string {
+  // Logging pour identifier l'erreur 404
+  if (axios.isAxiosError(error)) {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data
+    });
+  }
   if (axios.isAxiosError(error)) {
     const isAuthRoute = configIsAuthRoute(error.config?.url);
+    
+    // Logging pour identifier l'erreur 404
+    if (error.response?.status === 404) {
+      console.error('404 Error for URL:', error.config?.url);
+      return 'Resource not found. Please refresh the page.';
+    }
     if (error.response?.status === 401 && !isAuthRoute) {
       return 'Ta session a expiré ou tu n’es pas connecté. Connecte-toi pour effectuer cette action.';
     }
