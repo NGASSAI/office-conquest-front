@@ -274,6 +274,7 @@ export default function DashboardPage() {
                   "Une bonne réponse rapporte aussi un score; si tu as une équipe, ce score lui donne de l'énergie.",
                   "Un sondage n'a pas de bonne réponse et ne donne ni score compétitif ni énergie; il fait avancer l'objectif commun.",
                   "Memory propose une séquence de couleurs ou des paires d'icônes. Trouve l'intrus consiste à choisir l'icône différente.",
+                  "Réflexe : attends le signal aléatoire du serveur, puis clique la cible le plus vite possible.",
                   "Quand l'énergie d'une équipe atteint son seuil, elle lance automatiquement un raid et dépense ce seuil.",
                   "Un raid gagné permet à l'attaquant de prendre le territoire; le défenseur le garde s'il gagne; une égalité ne change rien.",
                   "Un raid non commencé expire après 24 h et son énergie est rendue.",
@@ -437,6 +438,17 @@ function ChallengeForm({
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [riddleAnswer, setRiddleAnswer] = useState('');
 
+  if (challenge.type === 'REFLEX') {
+    return (
+      <DailyReflexChallenge
+        challengeId={challenge.id}
+        onSubmit={onSubmit}
+        submitting={submitting}
+        error={error}
+      />
+    );
+  }
+
   if (challenge.type === 'SPOT') {
     return <SpotGame content={challenge.content} onAnswer={onSubmit} disabled={submitting} />;
   }
@@ -500,8 +512,7 @@ function ChallengeForm({
     );
   }
 
-  // MEMORY et REFLEX réutilisent le même moteur de mini-jeu que les manches de raid
-  if (challenge.type === 'MEMORY' || challenge.type === 'REFLEX') {
+  if (challenge.type === 'MEMORY') {
     return (
       <div>
         <RoundGame
@@ -517,4 +528,104 @@ function ChallengeForm({
   }
 
   return null;
+}
+
+function DailyReflexChallenge({
+  challengeId,
+  onSubmit,
+  submitting,
+  error,
+}: {
+  challengeId: string;
+  onSubmit: (answerData: Record<string, unknown>) => void;
+  submitting: boolean;
+  error: string | null;
+}) {
+  const [roundKey, setRoundKey] = useState(0);
+  const [phase, setPhase] = useState<'loading' | 'waiting' | 'ready' | 'error'>('loading');
+  const [reflexToken, setReflexToken] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setPhase('loading');
+    setStartError(null);
+    setReflexToken(null);
+
+    api.post<{ token: string; readyInMs: number }>(`/challenges/${challengeId}/reflex/start`)
+      .then(({ data }) => {
+        if (cancelled) return;
+        setReflexToken(data.token);
+        setPhase('waiting');
+        timer = setTimeout(() => {
+          if (!cancelled) setPhase('ready');
+        }, data.readyInMs);
+      })
+      .catch((requestError) => {
+        if (cancelled) return;
+        setStartError(getApiErrorMessage(requestError, 'Impossible de préparer le signal.'));
+        setPhase('error');
+      });
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [challengeId, roundKey]);
+
+  function retry() {
+    setRetrying(true);
+    setRoundKey((current) => current + 1);
+  }
+
+  function answer() {
+    if (!reflexToken) return;
+    setRetrying(false);
+    onSubmit({ reflexToken });
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 py-4 text-center">
+      <p className="text-sm text-parchment-muted" aria-live="polite">
+        {phase === 'loading' ? 'Préparation du signal…' :
+          phase === 'waiting' ? 'Attends que la cible apparaisse…' :
+            phase === 'ready' ? 'Maintenant ! Clique sur la cible.' :
+              startError}
+      </p>
+      {phase === 'ready' ? (
+        <button
+          type="button"
+          onClick={answer}
+          disabled={submitting}
+          aria-label="Cliquer sur la cible réflexe"
+          className="h-32 w-32 animate-pulse rounded-full border-4 border-teal bg-teal text-ink transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? 'Envoi…' : 'CLIQUE !'}
+        </button>
+      ) : (
+        <div aria-hidden="true" className="h-32 w-32 rounded-full border-2 border-ink-line bg-ink-panel" />
+      )}
+      {error && !retrying && <p role="alert" className="text-xs text-danger">{error}</p>}
+      {phase === 'error' && (
+        <button
+          type="button"
+          onClick={retry}
+          className="border border-ink-line px-4 py-2 text-sm text-parchment hover:border-brass hover:text-brass"
+        >
+          Réessayer
+        </button>
+      )}
+      {phase === 'ready' && error && !retrying && (
+        <button
+          type="button"
+          onClick={retry}
+          className="border border-ink-line px-4 py-2 text-sm text-parchment hover:border-brass hover:text-brass"
+        >
+          Relancer le signal
+        </button>
+      )}
+    </div>
+  );
 }
