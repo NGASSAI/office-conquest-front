@@ -113,6 +113,38 @@ export default function DashboardPage() {
     load();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    let requestInFlight = false;
+
+    async function refreshRaids() {
+      if (requestInFlight || !navigator.onLine || document.visibilityState !== 'visible') return;
+      requestInFlight = true;
+      try {
+        const { data } = await api.get<RaidSummary[]>('/raids/active');
+        if (active) setRaids(data);
+      } catch {
+        // Keep the last known raids visible during transient network failures.
+      } finally {
+        requestInFlight = false;
+      }
+    }
+
+    const interval = setInterval(refreshRaids, 4000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshRaids();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onVisibilityChange);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onVisibilityChange);
+    };
+  }, []);
+
   function selectChallenge(challengeId: string) {
     setSelectedChallengeId(challengeId);
     startedAt.current = Date.now();

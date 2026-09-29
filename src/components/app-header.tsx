@@ -5,7 +5,8 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth-store';
 import { logout } from '../lib/auth';
-import { getApiErrorMessage } from '../lib/api';
+import { api, getApiErrorMessage } from '../lib/api';
+import { connectNotificationsSocket, disconnectNotificationsSocket } from '../lib/notifications-socket';
 import { HelpButton } from './help-button';
 
 const NAV_LINKS = [
@@ -16,6 +17,15 @@ const NAV_LINKS = [
   { href: '/profile', label: 'Profil' },
 ];
 
+interface UserNotification {
+  id: string;
+  type: 'DUEL_INVITE' | 'DUEL_RESPONSE' | 'RAID_ATTACK' | 'RAID_DEFENSE';
+  title: string;
+  message: string;
+  targetId: string;
+  createdAt: string;
+}
+
 export function AppHeader() {
   const { user, setUser } = useAuthStore();
   const pathname = usePathname();
@@ -23,6 +33,8 @@ export function AppHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -34,6 +46,64 @@ export function AppHeader() {
       window.removeEventListener('offline', updateOnlineStatus);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setNotifications([]);
+      return;
+    }
+
+    let active = true;
+    const socket = connectNotificationsSocket();
+
+    async function refreshNotifications() {
+      try {
+        const { data } = await api.get<UserNotification[]>('/notifications/mine');
+        if (active) setNotifications(data);
+      } catch {
+        // Le socket réessaiera et les alertes restent enregistrées côté serveur.
+      }
+    }
+
+    function onNewNotification(notification: UserNotification) {
+      setNotifications((current) => [
+        notification,
+        ...current.filter((item) => item.id !== notification.id),
+      ].slice(0, 30));
+    }
+
+    function onNotificationRemoved(payload: { id?: string; targetId?: string }) {
+      setNotifications((current) => current.filter((item) =>
+        payload.id ? item.id !== payload.id : item.targetId !== payload.targetId,
+      ));
+    }
+
+    socket.on('connect', refreshNotifications);
+    socket.on('notification:new', onNewNotification);
+    socket.on('notification:removed', onNotificationRemoved);
+    if (socket.connected) void refreshNotifications();
+
+    return () => {
+      active = false;
+      socket.off('connect', refreshNotifications);
+      socket.off('notification:new', onNewNotification);
+      socket.off('notification:removed', onNotificationRemoved);
+      disconnectNotificationsSocket();
+    };
+  }, [user?.id]);
+
+  async function openNotification(notification: UserNotification) {
+    setNotificationsOpen(false);
+    try {
+      await api.post(`/notifications/${notification.id}/read`);
+      setNotifications((current) => current.filter((item) => item.id !== notification.id));
+    } catch {
+      // Navigation reste possible; l'alerte reviendra au prochain chargement si elle n'a pas été acquittée.
+    }
+    router.push(notification.type.startsWith('DUEL')
+      ? `/duel/${notification.targetId}`
+      : `/raid/${notification.targetId}`);
+  }
 
   async function onLogout() {
     try {
@@ -54,6 +124,59 @@ export function AppHeader() {
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {user && <span className="hidden max-w-32 truncate text-sm text-parchment-muted sm:block">{user.pseudo}</span>}
+            {user && (
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-label={`Notifications${notifications.length ? `, ${notifications.length} non lue(s)` : ''}`}
+                  aria-expanded={notificationsOpen}
+                  aria-controls="user-notifications"
+                  title="Notifications"
+                  onClick={() => setNotificationsOpen((open) => !open)}
+                  className="relative flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted transition hover:border-brass hover:text-brass"
+                >
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0" />
+                  </svg>
+                  {notifications.length > 0 && (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center border border-ink bg-danger px-1 font-mono text-[10px] text-white">
+                      {notifications.length > 9 ? '9+' : notifications.length}
+                    </span>
+                  )}
+                </button>
+                {notificationsOpen && (
+                  <section
+                    id="user-notifications"
+                    aria-label="Notifications non lues"
+                    className="absolute right-0 top-full z-50 mt-2 max-h-[min(70dvh,28rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto border border-ink-line bg-ink-panel shadow-xl"
+                  >
+                    <h2 className="border-b border-ink-line px-4 py-3 font-display text-sm text-parchment">
+                      Notifications
+                    </h2>
+                    {notifications.length === 0 ? (
+                      <p className="px-4 py-5 text-sm text-parchment-muted">Aucune nouvelle alerte.</p>
+                    ) : (
+                      <div className="divide-y divide-ink-line">
+                        {notifications.map((notification) => (
+                          <button
+                            key={notification.id}
+                            type="button"
+                            onClick={() => void openNotification(notification)}
+                            className="block w-full px-4 py-3 text-left transition hover:bg-ink"
+                          >
+                            <span className="block text-sm text-brass">{notification.title}</span>
+                            <span className="mt-1 block text-xs text-parchment-muted">{notification.message}</span>
+                            <time className="mt-2 block font-mono text-[10px] text-parchment-muted/70">
+                              {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                            </time>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
+              </div>
+            )}
             {user ? (
               <button
                 type="button"

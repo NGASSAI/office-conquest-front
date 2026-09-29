@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, getApiErrorMessage } from '../../../../lib/api';
@@ -34,17 +34,19 @@ export default function DuelPlayPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [reflexReady, setReflexReady] = useState(false);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const load = useCallback(() => {
+  const load = useCallback((silent = false) => {
     return api
       .get<DuelDetail>(`/duels/${id}`)
       .then(({ data }) => {
         setDuel(data);
+        setError(null);
         if (currentUser && data.scores?.[currentUser.id] !== undefined) setHasAnswered(true);
         return data;
       })
-      .catch((e) => setError(getApiErrorMessage(e, 'Impossible de charger ce duel.')));
+      .catch((e) => {
+        if (!silent) setError(getApiErrorMessage(e, 'Impossible de charger ce duel.'));
+        return null;
+      });
   }, [id, currentUser]);
 
   useEffect(() => {
@@ -55,11 +57,31 @@ export default function DuelPlayPage() {
   // pas de WebSocket pour les duels (asynchrones par nature, contrairement aux raids).
   useEffect(() => {
     if (!duel || duel.status === 'COMPLETED') return;
-    pollRef.current = setInterval(() => load(), POLL_INTERVAL_MS);
-    return () => {
-      if (pollRef.current !== null) clearInterval(pollRef.current);
+
+    let requestInFlight = false;
+    const refresh = async () => {
+      if (requestInFlight || !navigator.onLine || document.visibilityState !== 'visible') return;
+      requestInFlight = true;
+      try {
+        await load(true);
+      } finally {
+        requestInFlight = false;
+      }
     };
-  }, [duel, load]);
+
+    const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onVisibilityChange);
+    };
+  }, [duel?.status, load]);
 
   async function onReflexReady() {
     try {
@@ -159,7 +181,7 @@ export default function DuelPlayPage() {
 
         {!isCompleted && hasAnswered && (
           <div className="border border-ink-line px-5 py-6 text-center text-sm text-parchment-muted">
-            Réponse envoyée — en attente de {opponent.pseudo}…
+            Réponse envoyée; le résultat se met à jour automatiquement pendant que tu attends {opponent.pseudo}…
           </div>
         )}
 

@@ -50,6 +50,38 @@ export default function DuelLobbyPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    let requestInFlight = false;
+
+    async function refreshDuels() {
+      if (requestInFlight || !navigator.onLine || document.visibilityState !== 'visible') return;
+      requestInFlight = true;
+      try {
+        const { data } = await api.get<DuelSummary[]>('/duels/mine');
+        if (active) setMyDuels(data);
+      } catch {
+        // Preserve the current lobby if a background refresh briefly fails.
+      } finally {
+        requestInFlight = false;
+      }
+    }
+
+    const interval = setInterval(refreshDuels, 4000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshDuels();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onVisibilityChange);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onVisibilityChange);
+    };
+  }, []);
+
   async function onChallenge() {
     if (!selectedOpponent) return;
     setCreating(true);
