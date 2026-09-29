@@ -58,10 +58,10 @@ export default function LeaderboardPage() {
             <HelpButton
               title="Le classement"
               content={[
-                "Le classement est basé sur l'énergie totale apportée à ton équipe.",
-                "L'énergie est gagnée en complétant les défis quotidiens.",
-                "Plus tu joues aux défis, plus tu montes dans le classement.",
-                "Les duels gagnés sont aussi pris en compte."
+                "Le classement compare l'énergie positive apportée aux équipes par les défis scorés.",
+                "Les votes, les réponses sans énergie et les défis joués en solo ne donnent pas de rang compétitif.",
+                "Les duels gagnés sont affichés dans les statistiques, mais ne changent pas ce classement.",
+                "Tu peux gagner de l'XP et des badges sans apparaître dans le classement d'équipe."
               ]}
             />
           </div>

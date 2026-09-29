@@ -230,11 +230,12 @@ const AVATAR_COLORS = ['#C9A227', '#2F6F6B', '#B4462F', '#6B7FD7', '#8B93A8', '#
           <HelpButton
             title="Mon profil"
             content={[
-              "Avatar : personnalise ton symbole et sa couleur.",
-              "Équipe : tu peux changer d'équipe à tout moment.",
-              "Performance : tes statistiques de jeu.",
-              "Phrase secrète : te permet de récupérer ton compte si tu oublies ton mot de passe.",
-              "Déconnexion : te déconnecte de ta session actuelle."
+              "Avatar : choisis le symbole et la couleur qui te représentent.",
+              "Équipe : rejoins une équipe pour contribuer à son énergie et participer aux raids; tu peux aussi rester en solo.",
+              "Quitter une équipe ne retire pas l'énergie déjà gagnée par cette équipe.",
+              "Performance : XP, niveau, badges, défis joués et statistiques; l'XP personnelle ne diminue pas après un échec.",
+              "Phrase secrète : configure-la pour pouvoir récupérer ton compte si tu oublies ton mot de passe.",
+              "Déconnexion ferme ta session sur cet appareil."
             ]}
           />
           <Link href="/dashboard" className="text-sm text-parchment-muted hover:text-brass">

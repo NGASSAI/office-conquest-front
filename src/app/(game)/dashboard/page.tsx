@@ -269,17 +269,15 @@ export default function DashboardPage() {
               <HelpButton
                 title="Comment ça marche ?"
                 content={[
-                  "Chaque jour, plusieurs défis peuvent être disponibles.",
-                  "Tu peux jouer chaque défi une seule fois.",
-                  "Chaque participation rapporte de l'expérience, même si ta réponse est incorrecte.",
-                  "Si tu rejoins une équipe, ton score lui rapporte aussi de l'énergie.",
-                  "Les équipes sont nécessaires pour participer aux raids, pas pour jouer aux défis.",
-                  "Quiz et énigme : points selon la réponse et la rapidité.",
-                  "Sondage : partage ton choix, sans score compétitif ni énergie.",
-                  "Memory : reproduis une séquence ou retrouve des paires.",
-                  "Trouve l'intrus : repère l'icône différente dans la grille.",
-                  "Réflexe : clique le plus vite possible quand le bouton apparaît.",
-                  "Quand ton équipe atteint le seuil d'énergie, un raid se déclenche automatiquement !"
+                  "Joue chaque défi du jour une fois; tu peux jouer seul, sans équipe.",
+                  "Chaque participation rapporte 10 XP, même si tu rates ta réponse.",
+                  "Une bonne réponse rapporte aussi un score; si tu as une équipe, ce score lui donne de l'énergie.",
+                  "Un sondage n'a pas de bonne réponse et ne donne ni score compétitif ni énergie; il fait avancer l'objectif commun.",
+                  "Memory propose une séquence de couleurs ou des paires d'icônes. Trouve l'intrus consiste à choisir l'icône différente.",
+                  "Quand l'énergie d'une équipe atteint son seuil, elle lance automatiquement un raid et dépense ce seuil.",
+                  "Un raid gagné permet à l'attaquant de prendre le territoire; le défenseur le garde s'il gagne; une égalité ne change rien.",
+                  "Un raid non commencé expire après 24 h et son énergie est rendue.",
+                  "L'objectif hebdomadaire compte les défis joués par toute la communauté."
                 ]}
               />
             </div>
@@ -389,11 +387,11 @@ export default function DashboardPage() {
                 <HelpButton
                   title="Les raids"
                   content={[
-                    "Un raid se déclenche quand une équipe atteint son seuil d'énergie.",
-                    "Les membres des deux équipes peuvent rejoindre le raid.",
-                    "Le raid se compose de 3 manches : Quiz, Mémoire, Réflexe.",
-                    "Chaque joueur répond une fois par manche.",
-                    "L'équipe avec le score total le plus élevé gagne le territoire."
+                    "L'attaquant dépense son seuil d'énergie au lancement, que le raid soit gagné ou perdu.",
+                    "Seuls les membres des équipes attaquante et défenseuse peuvent rejoindre et répondre.",
+                    "Le raid comprend 3 manches : Quiz, Réflexe et Memory. Chaque membre peut répondre une fois par manche.",
+                    "L'attaquant prend le territoire s'il gagne; le défenseur le conserve s'il gagne; en cas d'égalité, le propriétaire ne change pas.",
+                    "Un raid encore en attente après 24 h est annulé et l'énergie de l'attaquant est remboursée."
                   ]}
                 />
               </div>

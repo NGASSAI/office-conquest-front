@@ -189,6 +189,19 @@ export default function RaidPage() {
           </div>
         )}
 
+        {raid.status === 'CANCELLED' && (
+          <div className="mb-8 border border-ink-line bg-ink-panel px-5 py-4 text-sm text-parchment-muted">
+            Ce raid n&apos;a pas démarré dans les 24 heures. Il a été annulé et l&apos;énergie de l&apos;équipe attaquante a été rendue.
+            <button
+              type="button"
+              onClick={() => router.push('/map')}
+              className="mt-3 block text-brass hover:underline"
+            >
+              Retour à la carte
+            </button>
+          </div>
+        )}
+
         {/* --- Manche en cours --- */}
         {!ended && currentRound && (
           <section className="border border-ink-line">

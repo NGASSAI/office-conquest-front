@@ -108,14 +108,12 @@ function AdminDashboardContent() {
           <HelpButton
             title="Vue d'ensemble admin"
             content={[
-              "Statistiques globales : utilisateurs, équipes, territoires, raids, duels.",
-              "Classement des équipes par énergie et nombre de territoires.",
-              "Utilise le menu pour accéder aux autres pages d'administration.",
-              "Monitoring : flux d'activité en temps réel.",
-              "Utilisateurs : gérer les comptes, bloquer/débloquer.",
-              "Équipes : créer, modifier, supprimer des équipes.",
-              "Défis : programmer les défis quotidiens.",
-              "Raids : voir l'historique des raids."
+              "Les chiffres résument l'activité enregistrée; ils ne sont pas des commandes de jeu.",
+              "Le classement des équipes compare leur énergie et les territoires qu'elles contrôlent.",
+              "Utilisateurs : rechercher, bloquer ou réactiver un compte. Le blocage ferme ses sessions.",
+              "Équipes et territoires : préparer les groupes et la carte; les joueurs ne les créent pas.",
+              "Défis : programmer plusieurs activités à une date et supprimer un défi avec ses tentatives.",
+              "Raids : consulter les résultats et les raids annulés; le monitoring montre le flux d'activité."
             ]}
           />
         </div>

@@ -96,10 +96,10 @@ function MonitoringContent() {
           <HelpButton
             title="Monitoring"
             content={[
-              "Flux d'activité en temps réel via WebSocket.",
-              "Événements critiques affichés en rouge : comptes verrouillés, tentatives échouées, tokens réutilisés.",
-              "Les événements incluent : connexions, déconnexions, raids, duels, défis, changements d'équipe.",
-              "Le monitoring se met à jour automatiquement quand de nouveaux événements surviennent."
+              "Cette page affiche les événements récents des comptes et du jeu; elle ne modifie aucune donnée.",
+              "Le point vert indique que le flux temps réel est connecté; sinon, recharge la page pour réessayer.",
+              "Les alertes rouges signalent notamment des échecs de connexion, des comptes verrouillés ou un rejeu de session.",
+              "Les détails peuvent contenir des identifiants techniques; ils ne remplacent pas les journaux de la plateforme."
             ]}
           />
         </div>

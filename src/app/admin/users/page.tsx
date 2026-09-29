@@ -92,12 +92,11 @@ function AdminUsersContent() {
           <HelpButton
             title="Gestion des utilisateurs"
             content={[
-              "Recherche : filtre par email ou pseudo.",
-              "Statut : filtre par actif/bloqué.",
-              "Blocage : empêche l'utilisateur de se connecter (révoque toutes ses sessions).",
-              "Déblocage : réactive le compte.",
-              "Impossible de bloquer un autre admin ou soi-même.",
-              "Le compteur d'échecs montre les tentatives de connexion échouées."
+              "Recherche par email ou pseudo; le filtre de statut affiche les comptes actifs ou bloqués.",
+              "Bloquer empêche toute nouvelle connexion et révoque les sessions existantes.",
+              "Débloquer rend l'accès au compte; cela ne change ni le mot de passe ni l'équipe.",
+              "Tu ne peux bloquer ni ton propre compte ni un autre administrateur.",
+              "Le compteur indique les tentatives de connexion échouées, pas les actions de jeu."
             ]}
           />
         </div>

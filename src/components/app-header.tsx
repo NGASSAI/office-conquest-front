@@ -75,12 +75,13 @@ export function AppHeader() {
             <HelpButton
               title="Comment jouer à La Conquête du Bureau ?"
               content={[
-                "Choisis une équipe dans ton profil : ses membres jouent ensemble pour conquérir les territoires.",
-                "Chaque jour, relève un défi (quiz, énigme, mémoire ou réflexe). Tu peux le jouer une fois; ton score apporte de l'énergie à ton équipe.",
-                "Quand une équipe atteint son seuil d'énergie, un raid se déclenche. Les deux équipes s'affrontent en trois manches : quiz, mémoire et réflexe.",
-                "Les joueurs peuvent aussi se défier en duel 1 contre 1. Chaque adversaire joue à son rythme; le meilleur score gagne.",
-                "Consulte la carte pour suivre les territoires et le classement pour voir les joueurs les plus actifs.",
-                "La navigation et la consultation restent possibles hors ligne, mais jouer, modifier ton compte et te connecter nécessitent Internet."
+                "Tu peux commencer en solo : les défis quotidiens donnent de l'XP et débloquent des badges. Rejoins une équipe si tu veux contribuer à son énergie et jouer les raids.",
+                "Les activités sont Quiz, énigme, Memory (séquence ou paires), Réflexe, sondage sans score compétitif et Trouve l'intrus.",
+                "Chaque défi se joue une fois par jour. Une erreur ne retire pas ton XP; seuls les défis scorés en équipe apportent de l'énergie.",
+                "Un sondage rapporte de l'XP et fait avancer l'objectif commun, sans score compétitif ni énergie.",
+                "Quand une équipe atteint son seuil, elle lance un raid et dépense ce seuil. Une attaque gagnée prend le territoire; une défense gagnée le garde.",
+                "Les duels sont asynchrones et sans perte d'XP ou d'énergie en cas de défaite.",
+                "Les pages peuvent rester consultables hors ligne; jouer, enregistrer une réponse et modifier ton profil demandent Internet."
               ]}
             />
             <button

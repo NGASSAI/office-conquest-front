@@ -195,13 +195,12 @@ function AdminChallengesContent() {
           <HelpButton
             title="Défis quotidiens"
             content={[
-              "Crée des défis pour chaque date pour que les joueurs aient un défi quotidien.",
-              "Types disponibles : Quiz, énigme, Memory, réflexe, sondage participatif et Trouve l'intrus.",
-              "La difficulté (1-5) multiplie l'énergie gagnée par les joueurs.",
-              "Pour Quiz : la bonne réponse doit correspondre exactement à une option.",
-              "Pour Sondage : question légère et 2 à 4 choix uniques, sans réponse correcte.",
-              "Pour Memory : choisis une séquence de couleurs ou configure des paires d'icônes.",
-              "Pour Reflex : aucun contenu requis, le score se base sur le temps de réaction."
+              "Programme un ou plusieurs défis à chaque date; les joueurs peuvent tenter chacun une fois.",
+              "Quiz et énigme ont une réponse à valider. Memory propose une séquence ou des paires; Trouve l'intrus utilise 9 icônes.",
+              "Pour un sondage, ajoute 2 à 4 choix différents. Le vote rapporte seulement de l'XP et l'objectif commun, jamais score compétitif ou énergie.",
+              "La difficulté multiplie l'énergie apportée uniquement pour les défis scorés par un joueur en équipe.",
+              "Les réponses correctes sont gardées secrètes et vérifiées par le serveur.",
+              "Supprimer un défi efface aussi ses tentatives; l'énergie déjà gagnée par les équipes n'est pas retirée."
             ]}
           />
         </div>

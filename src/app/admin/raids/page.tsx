@@ -70,10 +70,11 @@ function AdminRaidsContent() {
           <HelpButton
             title="Historique des raids"
             content={[
-              "Les raids se déclenchent automatiquement quand une équipe atteint son seuil d'énergie.",
-              "Statuts : En attente (personne n'a rejoint), En cours (participants actifs), Terminé (résultat connu), Annulé.",
-              "Résultats : l'attaquant gagne (capture le territoire), le défenseur gagne (garde le territoire), ou égalité.",
-              "Le système choisit automatiquement le territoire cible (le plus anciennement conquis par une autre équipe)."
+              "Un raid démarre quand une équipe atteint son seuil; l'énergie est dépensée dès son lancement.",
+              "En attente signifie qu'aucun joueur n'a rejoint; en cours signifie que les manches ont commencé.",
+              "Après 24 h sans démarrage, un raid en attente est annulé et son coût est remboursé à l'attaquant.",
+              "L'attaquant gagnant prend le territoire; le défenseur gagnant le garde; une égalité ne change pas le propriétaire.",
+              "La cible est choisie automatiquement parmi les territoires d'une autre équipe."
             ]}
           />
         </div>

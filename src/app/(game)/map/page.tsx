@@ -112,10 +112,10 @@ export default function MapPage() {
             <HelpButton
               title="La carte"
               content={[
-                "Chaque territoire est contrôlé par une équipe.",
-                "Les territoires changent de propriétaire quand une équipe gagne un raid.",
-                "Le classement montre les équipes par nombre de territoires.",
-                "Plus ton équipe a de territoires, plus elle domine la carte !"
+                "Chaque territoire appartient à une équipe ou reste neutre.",
+                "Une victoire en attaque transfère le territoire; une victoire en défense le conserve; une égalité ne change pas son propriétaire.",
+                "Les raids sont réservés aux membres des deux équipes concernées. Le mode solo permet de jouer les défis, pas de participer aux raids.",
+                "La carte montre le propriétaire actuel et les couleurs de chaque équipe."
               ]}
             />
           </div>

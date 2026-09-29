@@ -91,12 +91,11 @@ export default function DuelLobbyPage() {
             <HelpButton
               title="Les duels"
               content={[
-                "Choisis un adversaire et un type d'épreuve.",
-                "Quiz : question à choix multiples.",
-                "Mémoire : reproduis la séquence de couleurs.",
-                "Réflexe : clique le plus vite possible.",
-                "Chaque joueur joue indépendamment, pas besoin d'être connecté en même temps.",
-                "Le gagnant est celui avec le score le plus élevé."
+                "Choisis un collègue actif et une épreuve : Quiz, Memory ou Réflexe.",
+                "Les deux joueurs peuvent répondre à des moments différents; tu n'as pas à attendre en ligne.",
+                "Le duel se termine quand les deux réponses sont enregistrées.",
+                "Le score le plus élevé gagne; en cas d'égalité, il n'y a pas de gagnant.",
+                "Perdre un duel ne retire ni XP ni énergie d'équipe."
               ]}
             />
           </div>

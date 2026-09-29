@@ -74,11 +74,12 @@ function AdminTeamsContent() {
           <HelpButton
             title="Équipes et territoires"
             content={[
-              "Équipes : définir le nom, la couleur et le seuil d'énergie pour déclencher les raids.",
-              "Territoires : définir le nom et le propriétaire initial.",
-              "Une équipe ne peut pas être supprimée si elle a encore des membres ou des territoires.",
-              "Un territoire ne peut pas être supprimé si un raid est en cours dessus.",
-              "Le seuil d'énergie par défaut est 1000.",
+              "Crée les équipes ici; les joueurs peuvent les rejoindre ou jouer en solo.",
+              "Le seuil d'énergie détermine quand une équipe lance un raid; le coût est débité au lancement.",
+              "Un territoire peut être neutre ou attribué à une équipe. Seule une victoire en raid change ensuite son propriétaire.",
+              "Une équipe ne peut être supprimée si elle a des membres ou des territoires; réattribue-les d'abord.",
+              "Un territoire engagé dans un raid ne peut pas être supprimé.",
+              "Le seuil par défaut est 1000 énergie."
             ]}
           />
         </div>

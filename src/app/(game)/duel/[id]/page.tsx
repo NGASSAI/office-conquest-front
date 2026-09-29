@@ -125,11 +125,10 @@ export default function DuelPlayPage() {
             <HelpButton
               title="Comment jouer ?"
               content={[
-                "Quiz : sélectionne la bonne réponse.",
-                "Mémoire : reproduis la séquence de couleurs.",
-                "Réflexe : clique sur 'Prêt' puis clique le plus vite possible quand le bouton apparaît.",
-                "Une fois ta réponse envoyée, attends que ton adversaire joue.",
-                "Le duel se termine automatiquement quand les deux réponses sont reçues."
+                "Quiz : choisis une option. Memory : reproduis la séquence. Réflexe : appuie sur Prêt puis clique dès que la cible apparaît.",
+                "Tu n'as qu'une réponse par duel; vérifie ton choix avant de l'envoyer.",
+                "Après ta réponse, tu peux quitter la page. Le résultat arrivera quand l'adversaire aura joué.",
+                "Une défaite ou une égalité ne retire pas d'XP ni d'énergie d'équipe."
               ]}
             />
           </div>
