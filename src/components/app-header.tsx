@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth-store';
 import { logout } from '../lib/auth';
@@ -35,6 +35,8 @@ export function AppHeader() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioInitializedRef = useRef(false);
 
   useEffect(() => {
     const updateOnlineStatus = () => setIsOnline(navigator.onLine);
@@ -72,14 +74,32 @@ export function AppHeader() {
 
     function playNotificationSound() {
       try {
-        const audio = new Audio('/notification.mp3');
-        audio.volume = 0.5;
-        audio.play().catch(() => {
-          // Le navigateur peut bloquer la lecture si l'utilisateur n'a pas interagi
-          // C'est normal, on ignore l'erreur
-        });
-      } catch {
-        // Erreur silencieuse si le son ne peut pas être joué
+        // Initialiser l'audio au premier appel
+        if (!audioInitializedRef.current) {
+          audioRef.current = new Audio('/notification.mp3');
+          audioRef.current.volume = 0.5;
+          audioRef.current.preload = 'auto';
+          audioInitializedRef.current = true;
+        }
+
+        const audio = audioRef.current;
+        if (!audio) return;
+        
+        // Réinitialiser pour pouvoir rejouer
+        audio.currentTime = 0;
+        
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((error: Error) => {
+            console.warn('Audio play failed:', error);
+            // Si l'audio context n'est pas autorisé, on essaie de le réinitialiser
+            if (error.name === 'NotAllowedError') {
+              audioInitializedRef.current = false;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Audio error:', error);
       }
     }
 

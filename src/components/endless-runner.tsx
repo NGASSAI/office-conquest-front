@@ -32,6 +32,8 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [collectibles, setCollectibles] = useState<Collectible[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 600, height: 400 });
+  const [isMovingUp, setIsMovingUp] = useState(false);
+  const [isMovingDown, setIsMovingDown] = useState(false);
   
   const gameLoopRef = useRef<number | undefined>(undefined);
   const obstacleIdRef = useRef(0);
@@ -39,9 +41,13 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   const lastSpawnRef = useRef(0);
   const distanceRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const playerVelocityRef = useRef(0);
 
   const PLAYER_HEIGHT = 50;
   const PLAYER_WIDTH = 35;
+  const PLAYER_SPEED = 4;
+  const GRAVITY = 0.5;
+  const FRICTION = 0.92;
 
   // Responsive canvas size
   useEffect(() => {
@@ -82,13 +88,24 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     }]);
   }, [canvasSize.width, canvasSize.height]);
 
-  const jump = useCallback(() => {
-    if (gameState !== 'playing') return;
-    setPlayerY(prev => Math.max(20, prev - 70));
-    setTimeout(() => {
-      setPlayerY(prev => Math.min(canvasSize.height - PLAYER_HEIGHT - 20, prev + 70));
-    }, 350);
-  }, [gameState, canvasSize.height]);
+  const moveUp = useCallback(() => {
+    if (gameState === 'playing') {
+      setIsMovingUp(true);
+      playerVelocityRef.current = -PLAYER_SPEED;
+    }
+  }, [gameState]);
+
+  const moveDown = useCallback(() => {
+    if (gameState === 'playing') {
+      setIsMovingDown(true);
+      playerVelocityRef.current = PLAYER_SPEED;
+    }
+  }, [gameState]);
+
+  const stopMove = useCallback(() => {
+    setIsMovingUp(false);
+    setIsMovingDown(false);
+  }, []);
 
   const startGame = useCallback(() => {
     setGameState('playing');
@@ -127,6 +144,22 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     }
 
     const gameLoop = (timestamp: number) => {
+      // Update player position with physics
+      setPlayerY(prev => {
+        let newY = prev + playerVelocityRef.current;
+        
+        // Apply friction when not moving
+        if (!isMovingUp && !isMovingDown) {
+          playerVelocityRef.current *= FRICTION;
+          newY += playerVelocityRef.current;
+        }
+        
+        // Keep player within bounds
+        newY = Math.max(20, Math.min(canvasSize.height - PLAYER_HEIGHT - 20, newY));
+        
+        return newY;
+      });
+
       setDistance(prev => {
         const newDistance = prev + speed * 0.08;
         distanceRef.current = newDistance;
@@ -211,29 +244,50 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameState, speed, playerY, score, spawnObstacle, spawnCollectible, endGame, onScoreUpdate]);
+  }, [gameState, speed, playerY, score, isMovingUp, isMovingDown, canvasSize.height, spawnObstacle, spawnCollectible, endGame, onScoreUpdate]);
 
   // Keyboard controls
   useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
         if (gameState === 'menu' || gameState === 'gameover') {
           startGame();
-        } else if (gameState === 'playing') {
-          jump();
         } else if (gameState === 'paused') {
           resumeGame();
         }
       }
       if (e.code === 'Escape' && gameState === 'playing') {
+        e.preventDefault();
         pauseGame();
+      }
+      if (gameState === 'playing') {
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+          e.preventDefault();
+          moveUp();
+        }
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+          e.preventDefault();
+          moveDown();
+        }
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState, startGame, jump, pauseGame, resumeGame]);
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (gameState === 'playing') {
+        if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') {
+          stopMove();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, [gameState, startGame, moveUp, moveDown, stopMove, pauseGame, resumeGame]);
 
   // Touch controls for mobile
   useEffect(() => {
@@ -241,19 +295,44 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       e.preventDefault();
       if (gameState === 'menu' || gameState === 'gameover') {
         startGame();
-      } else if (gameState === 'playing') {
-        jump();
       } else if (gameState === 'paused') {
         resumeGame();
       }
     };
 
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (gameState !== 'playing' || !canvasRef.current) return;
+      
+      const touch = e.touches[0];
+      const rect = canvasRef.current.getBoundingClientRect();
+      const touchY = touch.clientY - rect.top;
+      const centerY = rect.height / 2;
+      
+      if (touchY < centerY - 50) {
+        moveUp();
+      } else if (touchY > centerY + 50) {
+        moveDown();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      e.preventDefault();
+      stopMove();
+    };
+
     const canvas = canvasRef.current;
     if (canvas) {
       canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-      return () => canvas.removeEventListener('touchstart', handleTouchStart);
+      canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+      canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+      return () => {
+        canvas.removeEventListener('touchstart', handleTouchStart);
+        canvas.removeEventListener('touchmove', handleTouchMove);
+        canvas.removeEventListener('touchend', handleTouchEnd);
+      };
     }
-  }, [gameState, startGame, jump, resumeGame]);
+  }, [gameState, startGame, moveUp, moveDown, stopMove, resumeGame]);
 
   const getEmoji = (type: Obstacle['type'] | Collectible['type']) => {
     const emojis: Record<string, string> = {
@@ -368,7 +447,6 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       <div
         ref={canvasRef}
         className="relative mx-auto h-[350px] w-full max-w-[600px] overflow-hidden rounded-lg border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink"
-        onClick={jump}
         role="button"
         tabIndex={0}
       >
@@ -423,9 +501,27 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
 
       {/* Instructions */}
       <p className="mt-4 text-center text-xs text-parchment-muted">
-        <span className="hidden sm:inline">ESPACE ou clic pour sauter · ÉCHAP pour pause</span>
-        <span className="sm:hidden">Touche l'écran pour sauter</span>
+        <span className="hidden sm:inline">Flèches HAUT/BAS ou W/S pour bouger · ESPACE pour pause</span>
+        <span className="sm:hidden">Touche le haut/bas de l'écran pour bouger</span>
       </p>
+
+      {/* Mobile Controls */}
+      <div className="mt-4 flex justify-center gap-4 sm:hidden">
+        <button
+          onTouchStart={(e) => { e.preventDefault(); moveUp(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopMove(); }}
+          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40"
+        >
+          ⬆️
+        </button>
+        <button
+          onTouchStart={(e) => { e.preventDefault(); moveDown(); }}
+          onTouchEnd={(e) => { e.preventDefault(); stopMove(); }}
+          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40"
+        >
+          ⬇️
+        </button>
+      </div>
     </div>
   );
 }
