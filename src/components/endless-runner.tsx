@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useSpring, animated } from '@react-spring/web';
-import { Play, Pause, RotateCcw, Trophy, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Zap, Shield, Target, Coins } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface GameState {
   isPlaying: boolean;
@@ -114,25 +113,12 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     INITIAL_SPEED: 3,
     MAX_SPEED: 10,
     SPEED_INCREMENT: 0.0003,
-    OBSTACLE_SPAWN_RATE: 0.03, // Augmenté pour plus d'obstacles
-    COLLECTIBLE_SPAWN_RATE: 0.04, // Augmenté pour plus de pièces
+    OBSTACLE_SPAWN_RATE: 0.03,
+    COLLECTIBLE_SPAWN_RATE: 0.04,
     POWER_UP_SPAWN_RATE: 0.008,
     MIN_OBSTACLE_GAP: 180,
     MAX_OBSTACLE_GAP: 350,
   };
-
-  // Animations
-  const titleSpring = useSpring({
-    from: { opacity: 0, transform: 'translateY(-20px)' },
-    to: { opacity: 1, transform: 'translateY(0px)' },
-    config: { tension: 300, friction: 20 },
-  });
-
-  const scoreSpring = useSpring({
-    from: { number: 0 },
-    to: { number: gameState.score },
-    config: { tension: 120, friction: 14 },
-  });
 
   // Contrôles progressifs dans toutes les directions
   const startMovingUp = useCallback(() => {
@@ -322,28 +308,16 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       return;
     }
 
-    console.log('Game loop started, speed:', gameState.speed);
-
     const gameLoop = (timestamp: number) => {
-      console.log('Game loop tick, timestamp:', timestamp, 'lastSpawn:', lastSpawnRef.current);
-      
       // Update game state
       setGameState(prev => {
         const newSpeed = Math.min(CONFIG.MAX_SPEED, prev.speed + CONFIG.SPEED_INCREMENT);
         const newDistance = prev.distance + newSpeed * 0.05;
         const newLevel = Math.floor(newDistance / 200) + 1;
         
-        console.log('Speed:', newSpeed, 'Distance:', newDistance);
-        
         // Spawn obstacles avec logique métier améliorée
         const gap = CONFIG.MIN_OBSTACLE_GAP + Math.random() * (CONFIG.MAX_OBSTACLE_GAP - CONFIG.MIN_OBSTACLE_GAP);
-        const requiredTime = gap / newSpeed * 1000;
-        
-        console.log('Gap:', gap, 'Required time:', requiredTime, 'Time since last spawn:', timestamp - lastSpawnRef.current);
-        
-        if (timestamp - lastSpawnRef.current > requiredTime) {
-          console.log('SPAWNING OBSTACLE');
-          
+        if (timestamp - lastSpawnRef.current > gap / newSpeed * 1000) {
           const obstacleTypes: Obstacle['type'][] = ['barrier', 'laser', 'spike'];
           const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
           
@@ -358,25 +332,17 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           // Position Y aléatoire pour varier les défis
           const randomY = CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - size.height);
           
-          console.log('Creating obstacle at x:', CONFIG.CANVAS_WIDTH, 'y:', randomY);
-          
-          setObstacles(obs => {
-            const newObstacle = {
-              id: obstacleIdRef.current++,
-              x: CONFIG.CANVAS_WIDTH,
-              y: randomY,
-              type,
-              width: size.width,
-              height: size.height,
-            };
-            console.log('Obstacles count:', obs.length + 1);
-            return [...obs, newObstacle];
-          });
+          setObstacles(obs => [...obs, {
+            id: obstacleIdRef.current++,
+            x: CONFIG.CANVAS_WIDTH,
+            y: randomY,
+            type,
+            width: size.width,
+            height: size.height,
+          }]);
           
           // Spawn collectibles (pièces) inspiré des jeux de plateforme
           if (Math.random() < CONFIG.COLLECTIBLE_SPAWN_RATE) {
-            console.log('SPAWNING COLLECTIBLE');
-            
             const collectibleTypes: Collectible['type'][] = ['coin', 'gem', 'star'];
             const cType = collectibleTypes[Math.floor(Math.random() * collectibleTypes.length)];
             
@@ -386,38 +352,28 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
               star: 50,
             };
             
-            setCollectibles(cols => {
-              const newCollectible = {
-                id: collectibleIdRef.current++,
-                x: CONFIG.CANVAS_WIDTH + Math.random() * 150,
-                y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
-                type: cType,
-                value: values[cType],
-                collected: false,
-              };
-              console.log('Collectibles count:', cols.length + 1);
-              return [...cols, newCollectible];
-            });
+            setCollectibles(cols => [...cols, {
+              id: collectibleIdRef.current++,
+              x: CONFIG.CANVAS_WIDTH + Math.random() * 150,
+              y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
+              type: cType,
+              value: values[cType],
+              collected: false,
+            }]);
           }
           
           // Spawn power-up occasionnellement
           if (Math.random() < CONFIG.POWER_UP_SPAWN_RATE) {
-            console.log('SPAWNING POWERUP');
-            
             const powerUpTypes: PowerUp['type'][] = ['shield', 'speed', 'magnet'];
             const pType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
             
-            setPowerUps(powers => {
-              const newPowerUp = {
-                id: powerUpIdRef.current++,
-                x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
-                y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 40),
-                type: pType,
-                collected: false,
-              };
-              console.log('Powerups count:', powers.length + 1);
-              return [...powers, newPowerUp];
-            });
+            setPowerUps(powers => [...powers, {
+              id: powerUpIdRef.current++,
+              x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
+              y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 40),
+              type: pType,
+              collected: false,
+            }]);
           }
           
           lastSpawnRef.current = timestamp;
@@ -434,24 +390,19 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       // Move obstacles
       setObstacles(prev => {
         const filtered = prev.filter(obs => obs.x > -80);
-        const moved = filtered.map(obs => ({ ...obs, x: obs.x - gameState.speed }));
-        console.log('Moving obstacles, count:', moved.length);
-        return moved;
+        return filtered.map(obs => ({ ...obs, x: obs.x - gameState.speed }));
       });
 
       // Move collectibles
       setCollectibles(prev => {
         const filtered = prev.filter(c => c.x > -80 && !c.collected);
-        const moved = filtered.map(c => ({ ...c, x: c.x - gameState.speed }));
-        console.log('Moving collectibles, count:', moved.length);
-        return moved;
+        return filtered.map(c => ({ ...c, x: c.x - gameState.speed }));
       });
 
       // Move power-ups
       setPowerUps(prev => {
         const filtered = prev.filter(p => p.x > -80 && !p.collected);
-        const moved = filtered.map(p => ({ ...p, x: p.x - gameState.speed }));
-        return moved;
+        return filtered.map(p => ({ ...p, x: p.x - gameState.speed }));
       });
 
       // Collision detection avec obstacles
@@ -502,7 +453,6 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           );
           
           if (!c.collected && distance < 40) {
-            console.log('COLLECTIBLE COLLECTED:', c.type);
             newCombo++;
             newCoins++;
             newScore += c.value + (newCombo * 2);
@@ -528,7 +478,6 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           );
           
           if (!p.collected && distance < 45) {
-            console.log('POWERUP COLLECTED:', p.type);
             if (p.type === 'shield') {
               setPlayer(prev => ({ ...prev, shield: true }));
               setTimeout(() => {
@@ -668,7 +617,11 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   if (!gameState.isPlaying && !gameState.isGameOver) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
-        <animated.div style={titleSpring}>
+        <motion.div
+          initial={{ opacity: 0, transform: 'translateY(-20px)' }}
+          animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          transition={{ duration: 0.6 }}
+        >
           <div className="mb-8">
             <div className="text-8xl mb-4">🏃‍♂️</div>
             <h1 className="font-display text-5xl font-bold text-parchment mb-2">
@@ -681,37 +634,40 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           
           <div className="flex flex-col gap-3 mb-8">
             <div className="flex items-center justify-center gap-3 text-parchment-muted">
-              <ArrowUp className="w-5 h-5 text-brass" />
-              <ArrowDown className="w-5 h-5 text-brass" />
-              <ArrowLeft className="w-5 h-5 text-brass" />
-              <ArrowRight className="w-5 h-5 text-brass" />
+              <span className="text-2xl">⬆️⬇️⬅️➡️</span>
               <span className="text-sm">Maintiens pour te déplacer</span>
             </div>
             <div className="flex items-center justify-center gap-3 text-parchment-muted">
-              <Coins className="w-5 h-5 text-brass" />
+              <span className="text-2xl">🪙💎⭐</span>
               <span className="text-sm">Collecte les pièces et gemmes</span>
             </div>
             <div className="flex items-center justify-center gap-3 text-parchment-muted">
-              <Target className="w-5 h-5 text-brass" />
+              <span className="text-2xl">🚧⚡📌</span>
               <span className="text-sm">Évite les obstacles</span>
             </div>
           </div>
           
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={startGame}
-            className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 mx-auto touch-manipulation"
+            className="bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 touch-manipulation"
           >
-            <Play className="w-6 h-6" />
-            <span>Commencer</span>
-          </button>
+            Commencer
+          </motion.button>
           
           {gameState.highScore > 0 && (
-            <div className="mt-8 flex items-center justify-center gap-2 text-parchment-muted">
-              <Trophy className="w-5 h-5 text-brass" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="mt-8 flex items-center justify-center gap-2 text-parchment-muted"
+            >
+              <span className="text-2xl">🏆</span>
               <span className="font-mono">Meilleur score: {gameState.highScore}</span>
-            </div>
+            </motion.div>
           )}
-        </animated.div>
+        </motion.div>
       </div>
     );
   }
@@ -720,7 +676,11 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   if (gameState.isGameOver) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
-        <animated.div style={titleSpring}>
+        <motion.div
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', duration: 0.5 }}
+        >
           <div className="mb-8">
             <div className="text-8xl mb-4">😵</div>
             <h2 className="font-display text-4xl font-bold text-parchment mb-4">
@@ -752,20 +712,25 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           </div>
           
           {gameState.score >= gameState.highScore && gameState.score > 0 && (
-            <div className="mb-8 flex items-center justify-center gap-2 text-teal font-semibold">
-              <Trophy className="w-6 h-6" />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="mb-8 flex items-center justify-center gap-2 text-teal font-semibold"
+            >
+              <span className="text-2xl">🏆</span>
               <span>Nouveau record !</span>
-            </div>
+            </motion.div>
           )}
           
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={startGame}
-            className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 mx-auto touch-manipulation"
+            className="bg-gradient-to-r from-brass to-teal text-ink font-bold px-12 py-4 rounded-xl text-xl shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 touch-manipulation"
           >
-            <RotateCcw className="w-6 h-6" />
-            <span>Rejouer</span>
-          </button>
-        </animated.div>
+            Rejouer
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
@@ -774,7 +739,11 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   if (gameState.isPaused) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[600px] p-8 text-center">
-        <animated.div style={titleSpring}>
+        <motion.div
+          initial={{ scale: 0.9 }}
+          animate={{ scale: 1 }}
+          transition={{ type: 'spring', duration: 0.3 }}
+        >
           <div className="mb-8">
             <div className="text-8xl mb-4">⏸️</div>
             <h2 className="font-display text-4xl font-bold text-parchment mb-4">
@@ -796,22 +765,24 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           </div>
           
           <div className="flex gap-4">
-            <button
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={resumeGame}
-              className="group bg-gradient-to-r from-brass to-teal text-ink font-bold px-8 py-4 rounded-xl text-lg shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 flex items-center gap-3 touch-manipulation"
+              className="bg-gradient-to-r from-brass to-teal text-ink font-bold px-8 py-4 rounded-xl text-lg shadow-2xl hover:shadow-3xl transition-all transform hover:scale-105 touch-manipulation"
             >
-              <Play className="w-5 h-5" />
-              <span>Reprendre</span>
-            </button>
-            <button
+              Reprendre
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={endGame}
-              className="border-2 border-ink-line text-parchment px-8 py-4 rounded-xl text-lg hover:border-brass hover:text-brass transition-all flex items-center gap-3 touch-manipulation"
+              className="border-2 border-ink-line text-parchment px-8 py-4 rounded-xl text-lg hover:border-brass hover:text-brass transition-all touch-manipulation"
             >
-              <RotateCcw className="w-5 h-5" />
-              <span>Quitter</span>
-            </button>
+              Quitter
+            </motion.button>
           </div>
-        </animated.div>
+        </motion.div>
       </div>
     );
   }
@@ -824,9 +795,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         <div className="flex gap-6">
           <div className="text-left">
             <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
-            <animated.p className="font-mono text-2xl text-brass font-bold">
-              {scoreSpring.number.to(n => Math.round(n))}
-            </animated.p>
+            <p className="font-mono text-2xl text-brass font-bold">{gameState.score}</p>
           </div>
           <div className="text-left">
             <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
@@ -841,13 +810,13 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         <div className="flex items-center gap-3">
           {combo > 0 && (
             <div className="flex items-center gap-2 bg-brass/20 px-3 py-1 rounded-full border border-brass">
-              <Zap className="w-4 h-4 text-brass" />
+              <span className="text-2xl">⚡</span>
               <span className="font-mono text-sm text-brass">x{combo}</span>
             </div>
           )}
           {player.shield && (
             <div className="flex items-center gap-2 bg-teal/20 px-3 py-1 rounded-full border border-teal">
-              <Shield className="w-4 h-4 text-teal" />
+              <span className="text-2xl">🛡️</span>
               <span className="text-sm text-teal">Shield</span>
             </div>
           )}
@@ -855,7 +824,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
             onClick={pauseGame}
             className="p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
           >
-            <Pause className="w-5 h-5" />
+            <span className="text-2xl">⏸️</span>
           </button>
         </div>
       </div>
@@ -901,70 +870,90 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         </div>
 
         {/* Obstacles modernes */}
-        {obstacles.map(obs => (
-          <div
-            key={obs.id}
-            className="absolute flex items-center justify-center rounded-lg shadow-lg transition-all"
-            style={{
-              left: `${obs.x}px`,
-              top: `${obs.y}px`,
-              width: `${obs.width}px`,
-              height: `${obs.height}px`,
-              background: obs.type === 'laser' ? 'linear-gradient(180deg, #C9A227, #B4462F)' : 'rgba(180, 70, 47, 0.85)',
-              border: '2px solid #C9A227',
-            }}
-          >
-            <div className="text-2xl">{getObstacleIcon(obs.type)}</div>
-          </div>
-        ))}
+        <AnimatePresence>
+          {obstacles.map(obs => (
+            <motion.div
+              key={obs.id}
+              className="absolute flex items-center justify-center rounded-lg shadow-lg"
+              style={{
+                left: `${obs.x}px`,
+                top: `${obs.y}px`,
+                width: `${obs.width}px`,
+                height: `${obs.height}px`,
+                background: obs.type === 'laser' ? 'linear-gradient(180deg, #C9A227, #B4462F)' : 'rgba(180, 70, 47, 0.85)',
+                border: '2px solid #C9A227',
+              }}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+            >
+              <div className="text-2xl">{getObstacleIcon(obs.type)}</div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* Collectibles (pièces inspiré des jeux de plateforme) */}
-        {collectibles.map(c => (
-          <div
-            key={c.id}
-            className="absolute flex items-center justify-center rounded-full shadow-lg transition-all animate-bounce"
-            style={{
-              left: `${c.x}px`,
-              top: `${c.y}px`,
-              width: '35px',
-              height: '35px',
-              background: c.type === 'coin' ? 'rgba(201, 162, 39, 0.9)' : c.type === 'gem' ? 'rgba(47, 111, 107, 0.9)' : 'rgba(180, 70, 47, 0.9)',
-              border: '2px solid #EDEAE0',
-            }}
-          >
-            <div className="text-xl">{getCollectibleIcon(c.type)}</div>
-          </div>
-        ))}
+        <AnimatePresence>
+          {collectibles.map(c => (
+            <motion.div
+              key={c.id}
+              className="absolute flex items-center justify-center rounded-full shadow-lg"
+              style={{
+                left: `${c.x}px`,
+                top: `${c.y}px`,
+                width: '35px',
+                height: '35px',
+                background: c.type === 'coin' ? 'rgba(201, 162, 39, 0.9)' : c.type === 'gem' ? 'rgba(47, 111, 107, 0.9)' : 'rgba(180, 70, 47, 0.9)',
+                border: '2px solid #EDEAE0',
+              }}
+              animate={c.collected ? { scale: 0, opacity: 0 } : { scale: [1, 1.2, 1], rotate: [0, 360] }}
+              transition={{ duration: 0.8, repeat: c.collected ? 0 : Infinity }}
+            >
+              <div className="text-xl">{getCollectibleIcon(c.type)}</div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* Power-ups modernes */}
-        {powerUps.map(p => (
-          <div
-            key={p.id}
-            className="absolute flex items-center justify-center rounded-full shadow-lg transition-all animate-pulse"
-            style={{
-              left: `${p.x}px`,
-              top: `${p.y}px`,
-              width: '40px',
-              height: '40px',
-              background: p.type === 'shield' ? 'rgba(47, 111, 107, 0.9)' : p.type === 'speed' ? 'rgba(201, 162, 39, 0.9)' : 'rgba(180, 70, 47, 0.9)',
-              border: '2px solid #EDEAE0',
-            }}
-          >
-            <div className="text-xl">{getPowerUpIcon(p.type)}</div>
-          </div>
-        ))}
+        <AnimatePresence>
+          {powerUps.map(p => (
+            <motion.div
+              key={p.id}
+              className="absolute flex items-center justify-center rounded-full shadow-lg"
+              style={{
+                left: `${p.x}px`,
+                top: `${p.y}px`,
+                width: '40px',
+                height: '40px',
+                background: p.type === 'shield' ? 'rgba(47, 111, 107, 0.9)' : p.type === 'speed' ? 'rgba(201, 162, 39, 0.9)' : 'rgba(180, 70, 47, 0.9)',
+                border: '2px solid #EDEAE0',
+              }}
+              animate={p.collected ? { scale: 0, opacity: 0 } : { scale: [1, 1.15, 1] }}
+              transition={{ duration: 0.6, repeat: p.collected ? 0 : Infinity }}
+            >
+              <div className="text-xl">{getPowerUpIcon(p.type)}</div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
 
         {/* Tutorial overlay moderne */}
-        {showTutorial && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="bg-ink-panel border-2 border-brass px-8 py-4 rounded-2xl shadow-2xl">
-              <div className="flex items-center gap-3">
-                <Zap className="w-6 h-6 text-brass" />
-                <p className="font-semibold text-lg text-parchment">Utilise les flèches pour te déplacer</p>
+        <AnimatePresence>
+          {showTutorial && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            >
+              <div className="bg-ink-panel border-2 border-brass px-8 py-4 rounded-2xl shadow-2xl">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">⚡</span>
+                  <p className="font-semibold text-lg text-parchment">Utilise les flèches pour te déplacer</p>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Contrôles mobile D-pad */}
@@ -974,7 +963,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
           className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
         >
-          <ArrowUp className="w-6 h-6 text-brass" />
+          ⬆️
         </button>
         <div className="flex gap-4">
           <button
@@ -982,14 +971,14 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
             onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
             className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
           >
-            <ArrowLeft className="w-6 h-6 text-brass" />
+            ⬅️
           </button>
           <button
             onTouchStart={(e) => { e.preventDefault(); startMovingRight(); }}
             onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
             className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
           >
-            <ArrowRight className="w-6 h-6 text-brass" />
+            ➡️
           </button>
         </div>
         <button
@@ -997,7 +986,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
           className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
         >
-          <ArrowDown className="w-6 h-6 text-brass" />
+          ⬇️
         </button>
       </div>
 
