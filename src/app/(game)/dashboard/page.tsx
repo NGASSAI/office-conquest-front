@@ -8,6 +8,10 @@ import { api, getApiErrorMessage } from '../../../lib/api';
 import { AppHeader } from '../../../components/app-header';
 import { HelpButton } from '../../../components/help-button';
 import { RoundGame, SpotGame } from '../../../components/round-game';
+import { Confetti } from '../../../components/confetti';
+import { ProgressBar, LevelUp } from '../../../components/progress-bar';
+import { TiltCard } from '../../../components/tilt-card';
+import { StreakBadge, StreakProgress } from '../../../components/streak-badge';
 
 interface TeamSummary {
   id: string;
@@ -48,6 +52,7 @@ interface PlayerProgress {
   levelProgress: number;
   levelSize: number;
   badges: { id: string; title: string; description: string; unlocked: boolean }[];
+  streak?: number;
 }
 
 interface WeeklyGoal {
@@ -66,6 +71,9 @@ export default function DashboardPage() {
   const [weeklyGoal, setWeeklyGoal] = useState<WeeklyGoal | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [previousLevel, setPreviousLevel] = useState(0);
 
   const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
   const [attemptResults, setAttemptResults] = useState<Record<string, AttemptResult>>({});
@@ -168,11 +176,26 @@ export default function DashboardPage() {
         if (!current || typeof current.experiencePoints !== 'number') return current;
         const challengesCompleted = (current.challengesCompleted ?? 0) + 1;
         const experiencePoints = current.experiencePoints + experienceEarned;
+        const newLevel = Math.floor(experiencePoints / current.levelSize) + 1;
+        
+        if (newLevel > current.level) {
+          setPreviousLevel(current.level);
+          setShowLevelUp(true);
+          setShowConfetti(true);
+          setTimeout(() => setShowLevelUp(false), 2000);
+          setTimeout(() => setShowConfetti(false), 3000);
+        }
+        
+        if (data.score === 100) {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3000);
+        }
+        
         return {
           ...current,
           challengesCompleted,
           experiencePoints,
-          level: Math.floor(experiencePoints / current.levelSize) + 1,
+          level: newLevel,
           levelProgress: experiencePoints % current.levelSize,
           badges: (current.badges ?? []).map((badge) => ({
             ...badge,
@@ -232,42 +255,42 @@ export default function DashboardPage() {
         )}
 
         {playerProgress && (
-          <section className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
+          <TiltCard className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <h2 className="font-display text-lg text-parchment">Ta progression</h2>
-              <p className="font-mono text-sm text-brass">
-                Niveau {playerProgress.level} · {playerProgress.experiencePoints} XP
-              </p>
+              <div className="flex items-center gap-3">
+                {playerProgress.streak && playerProgress.streak > 0 && (
+                  <StreakBadge count={playerProgress.streak} />
+                )}
+                <p className="font-mono text-sm text-brass">
+                  Niveau {playerProgress.level} · {playerProgress.experiencePoints} XP
+                </p>
+              </div>
             </div>
-            <div
-              className="mt-3 h-2 bg-ink-line"
-              role="progressbar"
-              aria-label="Progression vers le niveau suivant"
-              aria-valuemin={0}
-              aria-valuemax={playerProgress.levelSize}
-              aria-valuenow={playerProgress.levelProgress}
-            >
-              <div
-                className="h-full bg-teal transition-all"
-                style={{ width: `${(playerProgress.levelProgress / playerProgress.levelSize) * 100}%` }}
-              />
-            </div>
+            <ProgressBar
+              value={playerProgress.levelProgress}
+              max={playerProgress.levelSize}
+              color="#2F6F6B"
+              size="md"
+            />
             <div className="mt-3 flex flex-wrap gap-2">
               {playerProgress.badges.map((badge) => (
-                <span
+                <motion.span
                   key={badge.id}
                   title={badge.description}
                   className={`border px-2 py-1 text-xs ${badge.unlocked ? 'border-brass/60 text-brass' : 'border-ink-line text-parchment-muted'}`}
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   {badge.title}
-                </span>
+                </motion.span>
               ))}
             </div>
-          </section>
+          </TiltCard>
         )}
 
         {weeklyGoal && (
-          <section className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
+          <TiltCard className="mb-6 border border-ink-line px-4 py-4 sm:px-5">
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <div>
                 <h2 className="font-display text-base text-parchment">Objectif commun de la semaine</h2>
@@ -275,20 +298,22 @@ export default function DashboardPage() {
               </div>
               <p className="font-mono text-sm text-teal">{weeklyGoal.completed} / {weeklyGoal.target}</p>
             </div>
-            <div
-              className="mt-3 h-2 bg-ink-line"
-              role="progressbar"
-              aria-label="Progression de l'objectif commun hebdomadaire"
-              aria-valuemin={0}
-              aria-valuemax={weeklyGoal.target}
-              aria-valuenow={Math.min(weeklyGoal.target, weeklyGoal.completed)}
-            >
-              <div className="h-full bg-brass transition-all" style={{ width: `${weeklyGoal.percent}%` }} />
-            </div>
+            <ProgressBar
+              value={Math.min(weeklyGoal.target, weeklyGoal.completed)}
+              max={weeklyGoal.target}
+              color="#C9A227"
+              size="md"
+            />
             {weeklyGoal.completed >= weeklyGoal.target && (
-              <p className="mt-2 text-xs text-teal">Objectif atteint, bravo à toute la communauté !</p>
+              <motion.p 
+                className="mt-2 text-xs text-teal"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                Objectif atteint, bravo à toute la communauté ! 🎉
+              </motion.p>
             )}
-          </section>
+          </TiltCard>
         )}
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
@@ -386,7 +411,7 @@ export default function DashboardPage() {
           {/* --- Colonne latérale : équipe + raids --- */}
           <aside className="space-y-6">
             {team && (
-              <section className="border border-ink-line">
+              <TiltCard className="border border-ink-line">
                 <h2 className="border-b border-ink-line px-4 py-3 font-display text-sm text-parchment sm:px-5 sm:text-base">
                   {team.name}
                 </h2>
@@ -397,19 +422,17 @@ export default function DashboardPage() {
                       {team.energy} / {team.energyThreshold}
                     </span>
                   </div>
-                  <div className="h-1.5 w-full bg-ink-line">
-                    <div
-                      className="h-full bg-brass transition-all"
-                      style={{
-                        width: `${Math.min(100, (team.energy / team.energyThreshold) * 100)}%`,
-                      }}
-                    />
-                  </div>
+                  <ProgressBar
+                    value={team.energy}
+                    max={team.energyThreshold}
+                    color="#C9A227"
+                    size="sm"
+                  />
                   <p className="mt-2 text-xs text-parchment-muted">
                     Un raid se déclenche automatiquement au seuil.
                   </p>
                 </div>
-              </section>
+              </TiltCard>
             )}
 
             <section className="border border-ink-line">
@@ -451,6 +474,8 @@ export default function DashboardPage() {
           </aside>
         </div>
       </main>
+      <Confetti trigger={showConfetti} />
+      {showLevelUp && <LevelUp level={playerProgress?.level ?? 1} />}
     </>
   );
 }

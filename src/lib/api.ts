@@ -50,6 +50,11 @@ async function refreshAccessToken(): Promise<string> {
         setAccessToken(data.accessToken);
         return data.accessToken as string;
       })
+      .catch((error) => {
+        // Échec du refresh : on nettoie le promise pour permettre un nouvel essai
+        refreshPromise = null;
+        throw error;
+      })
       .finally(() => {
         refreshPromise = null;
       });
