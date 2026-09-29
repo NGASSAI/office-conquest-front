@@ -318,7 +318,27 @@ export default function DashboardPage() {
 
         <div className="grid gap-6 md:grid-cols-[1fr_280px]">
           {/* --- Colonne principale : défi du jour --- */}
-          <section className="border border-ink-line">
+          <div className="space-y-6">
+            {/* Carte Jeu Solo */}
+            <TiltCard className="border border-teal/50 bg-teal/5 px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl">🏃‍♂️</span>
+                  <div>
+                    <h3 className="font-display text-base text-parchment">Le Bureau Infini</h3>
+                    <p className="text-xs text-parchment-muted">Mode solo hors-ligne</p>
+                  </div>
+                </div>
+                <Link
+                  href="/solo"
+                  className="border border-teal bg-teal/20 px-4 py-2 text-sm font-medium text-parchment transition hover:bg-teal/30"
+                >
+                  Jouer
+                </Link>
+              </div>
+            </TiltCard>
+
+            <section className="border border-ink-line">
             <div className="flex items-center justify-between border-b border-ink-line px-4 py-3 sm:px-5">
               <h2 className="font-display text-base text-parchment sm:text-lg">
                 Défi du jour
@@ -407,6 +427,7 @@ export default function DashboardPage() {
               )}
             </div>
           </section>
+          </div>
 
           {/* --- Colonne latérale : équipe + raids --- */}
           <aside className="space-y-6">
