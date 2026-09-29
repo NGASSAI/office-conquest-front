@@ -3,7 +3,7 @@ import { getAccessToken } from './api';
 
 let socket: Socket | null = null;
 
-export function connectNotificationsSocket(): Socket {
+export function getNotificationsSocket(): Socket {
   if (!socket) {
     socket = io(`${process.env.NEXT_PUBLIC_SOCKET_URL}/notifications`, {
       withCredentials: true,
@@ -11,7 +11,6 @@ export function connectNotificationsSocket(): Socket {
       auth: (callback) => callback({ token: getAccessToken() }),
     });
   }
-  if (!socket.connected) socket.connect();
   return socket;
 }
 

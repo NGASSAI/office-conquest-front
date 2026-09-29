@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth-store';
 import { logout } from '../lib/auth';
 import { api, getApiErrorMessage } from '../lib/api';
-import { connectNotificationsSocket, disconnectNotificationsSocket } from '../lib/notifications-socket';
+import { disconnectNotificationsSocket, getNotificationsSocket } from '../lib/notifications-socket';
 import { HelpButton } from './help-button';
 
 const NAV_LINKS = [
@@ -54,14 +54,19 @@ export function AppHeader() {
     }
 
     let active = true;
-    const socket = connectNotificationsSocket();
+    let requestInFlight = false;
+    const socket = getNotificationsSocket();
 
     async function refreshNotifications() {
+      if (requestInFlight || !navigator.onLine || document.visibilityState !== 'visible') return;
+      requestInFlight = true;
       try {
         const { data } = await api.get<UserNotification[]>('/notifications/mine');
         if (active) setNotifications(data);
       } catch {
         // Le socket réessaiera et les alertes restent enregistrées côté serveur.
+      } finally {
+        requestInFlight = false;
       }
     }
 
@@ -81,10 +86,22 @@ export function AppHeader() {
     socket.on('connect', refreshNotifications);
     socket.on('notification:new', onNewNotification);
     socket.on('notification:removed', onNotificationRemoved);
-    if (socket.connected) void refreshNotifications();
+    void refreshNotifications();
+    if (!socket.connected) socket.connect();
+    else void refreshNotifications();
+
+    const refreshInterval = setInterval(refreshNotifications, 10000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void refreshNotifications();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onVisibilityChange);
 
     return () => {
       active = false;
+      clearInterval(refreshInterval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onVisibilityChange);
       socket.off('connect', refreshNotifications);
       socket.off('notification:new', onNewNotification);
       socket.off('notification:removed', onNotificationRemoved);
@@ -145,35 +162,43 @@ export function AppHeader() {
                   )}
                 </button>
                 {notificationsOpen && (
-                  <section
-                    id="user-notifications"
-                    aria-label="Notifications non lues"
-                    className="absolute right-0 top-full z-50 mt-2 max-h-[min(70dvh,28rem)] w-[min(22rem,calc(100vw-2rem))] overflow-y-auto border border-ink-line bg-ink-panel shadow-xl"
-                  >
-                    <h2 className="border-b border-ink-line px-4 py-3 font-display text-sm text-parchment">
-                      Notifications
-                    </h2>
-                    {notifications.length === 0 ? (
-                      <p className="px-4 py-5 text-sm text-parchment-muted">Aucune nouvelle alerte.</p>
-                    ) : (
-                      <div className="divide-y divide-ink-line">
-                        {notifications.map((notification) => (
-                          <button
-                            key={notification.id}
-                            type="button"
-                            onClick={() => void openNotification(notification)}
-                            className="block w-full px-4 py-3 text-left transition hover:bg-ink"
-                          >
-                            <span className="block text-sm text-brass">{notification.title}</span>
-                            <span className="mt-1 block text-xs text-parchment-muted">{notification.message}</span>
-                            <time className="mt-2 block font-mono text-[10px] text-parchment-muted/70">
-                              {new Date(notification.createdAt).toLocaleString('fr-FR')}
-                            </time>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </section>
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Fermer les notifications"
+                      onClick={() => setNotificationsOpen(false)}
+                      className="fixed inset-0 z-40 cursor-default bg-black/25"
+                    />
+                    <section
+                      id="user-notifications"
+                      aria-label="Notifications non lues"
+                      className="fixed right-2 top-16 z-50 max-h-[calc(100dvh-5rem)] w-[calc(100vw-1rem)] max-w-sm overflow-y-auto border border-ink-line bg-ink-panel shadow-xl"
+                    >
+                      <h2 className="border-b border-ink-line px-4 py-3 font-display text-sm text-parchment">
+                        Notifications
+                      </h2>
+                      {notifications.length === 0 ? (
+                        <p className="px-4 py-5 text-sm text-parchment-muted">Aucune nouvelle alerte.</p>
+                      ) : (
+                        <div className="divide-y divide-ink-line">
+                          {notifications.map((notification) => (
+                            <button
+                              key={notification.id}
+                              type="button"
+                              onClick={() => void openNotification(notification)}
+                              className="block w-full px-4 py-3 text-left transition hover:bg-ink"
+                            >
+                              <span className="block text-sm text-brass">{notification.title}</span>
+                              <span className="mt-1 block text-xs text-parchment-muted">{notification.message}</span>
+                              <time className="mt-2 block font-mono text-[10px] text-parchment-muted/70">
+                                {new Date(notification.createdAt).toLocaleString('fr-FR')}
+                              </time>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+                  </>
                 )}
               </div>
             )}
