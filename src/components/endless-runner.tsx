@@ -48,7 +48,7 @@ interface EndlessRunnerProps {
 }
 
 export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps) {
-  // Configuration simplifiée mais professionnelle
+  // Configuration simplifiée mais professionnelle avec responsive
   const CONFIG = {
     CANVAS_HEIGHT: 450,
     CANVAS_WIDTH: 800,
@@ -64,6 +64,11 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     MAX_SPEED: 12,
     SPEED_INCREMENT: 0.001,
     SPAWN_INTERVAL: 1500, // Spawn tous les 1.5 secondes - garanti
+    // Mobile improvements
+    MOBILE_CANVAS_HEIGHT: 350,
+    MOBILE_PLAYER_WIDTH: 60,
+    MOBILE_PLAYER_HEIGHT: 60,
+    MOBILE_BUTTON_SIZE: 70,
   };
 
   const [gameState, setGameState] = useState<GameState>({
@@ -277,8 +282,12 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     });
   }, [onGameOver]);
 
-  // Spawn simple et garanti d'obstacles
+  // Spawn simple et garanti d'obstacles - responsive
   const spawnElements = useCallback(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    const mobileMinY = 50;
+    const mobileMaxY = 250;
+    
     const obstacleTypes: Obstacle['type'][] = ['barrier', 'laser', 'spike'];
     const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
     
@@ -289,7 +298,9 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     };
     
     const size = sizes[type];
-    const randomY = CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - size.height);
+    const minY = isMobile ? mobileMinY : CONFIG.MIN_Y;
+    const maxY = isMobile ? mobileMaxY : CONFIG.MAX_Y;
+    const randomY = minY + Math.random() * (maxY - minY - size.height);
     
     setObstacles(obs => {
       const newObstacle: Obstacle = {
@@ -317,7 +328,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       const newCollectible = {
         id: collectibleIdRef.current++,
         x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
-        y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
+        y: minY + Math.random() * (maxY - minY - 30),
         type: cType,
         value: values[cType],
         collected: false,
@@ -682,18 +693,18 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   // Game screen
   return (
     <div className="relative">
-      {/* HUD professionnel */}
-      <div className="flex justify-between items-center mb-6 px-4">
-        <div className="flex gap-6">
+      {/* HUD professionnel - responsive */}
+      <div className="flex justify-between items-center mb-4 sm:mb-6 px-4">
+        <div className="flex gap-4 sm:gap-6">
           <div className="text-left">
-            <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
-            <p className="font-mono text-2xl text-brass font-bold">{gameState.score}</p>
+            <p className="text-[10px] sm:text-xs text-parchment-muted uppercase tracking-wider mb-1">Score</p>
+            <p className="font-mono text-xl sm:text-2xl text-brass font-bold">{gameState.score}</p>
           </div>
           <div className="text-left">
-            <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
-            <p className="font-mono text-2xl text-teal font-bold">{coins}</p>
+            <p className="text-[10px] sm:text-xs text-parchment-muted uppercase tracking-wider mb-1">Pièces</p>
+            <p className="font-mono text-xl sm:text-2xl text-teal font-bold">{coins}</p>
           </div>
-          <div className="text-left">
+          <div className="text-left hidden sm:block">
             <p className="text-xs text-parchment-muted uppercase tracking-wider mb-1">Distance</p>
             <p className="font-mono text-xl text-parchment font-bold">{Math.floor(gameState.distance)}m</p>
           </div>
@@ -701,16 +712,16 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         
         <button
           onClick={pauseGame}
-          className="p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
+          className="p-2 sm:p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
         >
-          <span className="text-2xl">⏸️</span>
+          <span className="text-xl sm:text-2xl">⏸️</span>
         </button>
       </div>
 
-      {/* Game Canvas moderne */}
+      {/* Game Canvas moderne - responsive */}
       <div
         ref={canvasRef}
-        className="relative mx-auto h-[450px] w-full max-w-[900px] overflow-hidden rounded-2xl border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink touch-none select-none shadow-2xl"
+        className="relative mx-auto h-[350px] sm:h-[450px] w-full max-w-[900px] overflow-hidden rounded-2xl border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink touch-none select-none shadow-2xl"
         role="button"
         tabIndex={0}
       >
@@ -729,7 +740,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           </div>
         </div>
 
-        {/* Player moderne */}
+        {/* Player moderne - responsive */}
         <div
           className="absolute flex items-center justify-center transition-transform duration-100"
           style={{
@@ -739,7 +750,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
             height: `${CONFIG.PLAYER_HEIGHT}px`,
           }}
         >
-          <div className="text-4xl">🏃‍♂️</div>
+          <div className="text-4xl sm:text-5xl">🏃‍♂️</div>
         </div>
 
         {/* Obstacles modernes */}
@@ -787,19 +798,21 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           ))}
         </AnimatePresence>
 
-        {/* Tutorial overlay moderne */}
+        {/* Tutorial overlay moderne - responsive */}
         <AnimatePresence>
           {showTutorial && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+              className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
             >
-              <div className="bg-ink-panel border-2 border-brass px-8 py-4 rounded-2xl shadow-2xl">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">⚡</span>
-                  <p className="font-semibold text-lg text-parchment">Utilise les flèches pour te déplacer</p>
+              <div className="bg-ink-panel border-2 border-brass px-6 py-4 sm:px-8 sm:py-4 rounded-2xl shadow-2xl max-w-sm">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <span className="text-3xl sm:text-2xl">⚡</span>
+                  <p className="font-semibold text-base sm:text-lg text-parchment">
+                    Touches ou boutons pour te déplacer
+                  </p>
                 </div>
               </div>
             </motion.div>
@@ -807,35 +820,39 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         </AnimatePresence>
       </div>
 
-      {/* Contrôles mobile D-pad */}
-      <div className="mt-6 flex flex-col items-center gap-4 sm:hidden">
+      {/* Contrôles mobile D-pad - améliorés avec multi-touch */}
+      <div className="mt-4 sm:mt-6 flex flex-col items-center gap-3 sm:hidden">
         <button
-          onTouchStart={(e) => { e.preventDefault(); startMovingUp(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
-          className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+          onPointerDown={(e) => { e.preventDefault(); startMovingUp(); }}
+          onPointerUp={(e) => { e.preventDefault(); stopMoving(); }}
+          onPointerLeave={(e) => { e.preventDefault(); stopMoving(); }}
+          className="flex h-[70px] w-[70px] items-center justify-center rounded-2xl border-[4px] border-brass bg-brass/20 text-3xl active:bg-brass/40 active:scale-95 touch-manipulation shadow-lg"
         >
           ⬆️
         </button>
         <div className="flex gap-4">
           <button
-            onTouchStart={(e) => { e.preventDefault(); startMovingLeft(); }}
-            onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
-            className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+            onPointerDown={(e) => { e.preventDefault(); startMovingLeft(); }}
+            onPointerUp={(e) => { e.preventDefault(); stopMoving(); }}
+            onPointerLeave={(e) => { e.preventDefault(); stopMoving(); }}
+            className="flex h-[70px] w-[70px] items-center justify-center rounded-2xl border-[4px] border-brass bg-brass/20 text-3xl active:bg-brass/40 active:scale-95 touch-manipulation shadow-lg"
           >
             ⬅️
           </button>
           <button
-            onTouchStart={(e) => { e.preventDefault(); startMovingRight(); }}
-            onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
-            className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+            onPointerDown={(e) => { e.preventDefault(); startMovingRight(); }}
+            onPointerUp={(e) => { e.preventDefault(); stopMoving(); }}
+            onPointerLeave={(e) => { e.preventDefault(); stopMoving(); }}
+            className="flex h-[70px] w-[70px] items-center justify-center rounded-2xl border-[4px] border-brass bg-brass/20 text-3xl active:bg-brass/40 active:scale-95 touch-manipulation shadow-lg"
           >
             ➡️
           </button>
         </div>
         <button
-          onTouchStart={(e) => { e.preventDefault(); startMovingDown(); }}
-          onTouchEnd={(e) => { e.preventDefault(); stopMoving(); }}
-          className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-brass bg-brass/20 text-2xl active:bg-brass/40 touch-manipulation"
+          onPointerDown={(e) => { e.preventDefault(); startMovingDown(); }}
+          onPointerUp={(e) => { e.preventDefault(); stopMoving(); }}
+          onPointerLeave={(e) => { e.preventDefault(); stopMoving(); }}
+          className="flex h-[70px] w-[70px] items-center justify-center rounded-2xl border-[4px] border-brass bg-brass/20 text-3xl active:bg-brass/40 active:scale-95 touch-manipulation shadow-lg"
         >
           ⬇️
         </button>
