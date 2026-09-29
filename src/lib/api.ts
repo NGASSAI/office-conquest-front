@@ -68,6 +68,19 @@ api.interceptors.response.use(
     const config = error.config as RetryableConfig | undefined;
     const isAuthRoute = config?.url && AUTH_ROUTES_EXCLUDED_FROM_RETRY.some((r) => config.url!.includes(r));
 
+    // Gestion des erreurs réseau (perte de connexion temporaire)
+    if (error.code === 'ERR_NETWORK' && config && !config._retry) {
+      config._retry = true;
+      // Attendre un peu avant de réessayer
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        return api(config);
+      } catch (retryError) {
+        // Si ça échoue encore, on retourne l'erreur originale
+        return Promise.reject(error);
+      }
+    }
+
     if (error.response?.status === 401 && config && !config._retry && !isAuthRoute) {
       config._retry = true;
       try {

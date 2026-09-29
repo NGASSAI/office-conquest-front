@@ -80,6 +80,52 @@
   textarea {
     font-size: 16px;
   }
+  
+  /* Améliorations mobile pour le touch */
+  button, a {
+    min-height: 44px; /* Taille minimale pour le touch */
+    min-width: 44px;
+  }
+  
+  /* Empêcher le zoom accidentel sur mobile */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    font-size: 16px;
+  }
+  
+  /* Meilleure gestion du scroll horizontal */
+  body {
+    overflow-x: hidden;
+  }
+  
+  /* Optimisation des conteneurs pour mobile */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (min-width: 640px) {
+  /* Optimisations desktop */
+  button, a {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* Améliorations pour les conteneurs de jeu */
+.game-container {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .game-container {
+    padding: 2rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

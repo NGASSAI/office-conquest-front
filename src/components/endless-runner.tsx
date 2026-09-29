@@ -45,9 +45,9 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
 
   const PLAYER_HEIGHT = 50;
   const PLAYER_WIDTH = 35;
-  const PLAYER_SPEED = 4;
-  const GRAVITY = 0.5;
-  const FRICTION = 0.92;
+  const PLAYER_SPEED = 3; // Réduit pour un meilleur contrôle
+  const GRAVITY = 0.3; // Réduit pour des mouvements plus doux
+  const FRICTION = 0.85; // Augmenté pour plus de stabilité
 
   // Responsive canvas size
   useEffect(() => {
@@ -292,18 +292,19 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   // Touch controls for mobile
   useEffect(() => {
     const handleTouchStart = (e: TouchEvent) => {
-      e.preventDefault();
       if (gameState === 'menu' || gameState === 'gameover') {
+        e.preventDefault();
         startGame();
       } else if (gameState === 'paused') {
+        e.preventDefault();
         resumeGame();
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
       if (gameState !== 'playing' || !canvasRef.current) return;
       
+      e.preventDefault(); // Empêcher le scroll pendant le jeu
       const touch = e.touches[0];
       const rect = canvasRef.current.getBoundingClientRect();
       const touchY = touch.clientY - rect.top;
@@ -317,8 +318,10 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      e.preventDefault();
-      stopMove();
+      if (gameState === 'playing') {
+        e.preventDefault();
+        stopMove();
+      }
     };
 
     const canvas = canvasRef.current;
@@ -446,7 +449,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       {/* Game Canvas */}
       <div
         ref={canvasRef}
-        className="relative mx-auto h-[350px] w-full max-w-[600px] overflow-hidden rounded-lg border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink"
+        className="relative mx-auto h-[350px] w-full max-w-[600px] overflow-hidden rounded-lg border-2 border-ink-line bg-gradient-to-b from-ink-panel to-ink touch-none"
         role="button"
         tabIndex={0}
       >

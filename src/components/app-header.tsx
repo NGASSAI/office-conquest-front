@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '../store/auth-store';
 import { logout } from '../lib/auth';
 import { api, getApiErrorMessage } from '../lib/api';
-import { disconnectNotificationsSocket, getNotificationsSocket } from '../lib/notifications-socket';
+import { disconnectNotificationsSocket, getNotificationsSocket, reconnectNotificationsSocket } from '../lib/notifications-socket';
 import { HelpButton } from './help-button';
 
 const NAV_LINKS = [
@@ -39,7 +39,19 @@ export function AppHeader() {
   const audioInitializedRef = useRef(false);
 
   useEffect(() => {
-    const updateOnlineStatus = () => setIsOnline(navigator.onLine);
+    const updateOnlineStatus = () => {
+      const wasOffline = !isOnline;
+      setIsOnline(navigator.onLine);
+      
+      // Si on revient en ligne et qu'on a un utilisateur, recharger les notifications
+      if (wasOffline && navigator.onLine && user?.id) {
+        const notificationsSocket = getNotificationsSocket();
+        notificationsSocket.disconnect();
+        const newSocket = getNotificationsSocket();
+        newSocket.connect();
+      }
+    };
+    
     updateOnlineStatus();
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
@@ -47,7 +59,7 @@ export function AppHeader() {
       window.removeEventListener('online', updateOnlineStatus);
       window.removeEventListener('offline', updateOnlineStatus);
     };
-  }, []);
+  }, [isOnline, user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -57,7 +69,7 @@ export function AppHeader() {
 
     let active = true;
     let requestInFlight = false;
-    const socket = getNotificationsSocket();
+    const notificationsSocket = getNotificationsSocket();
 
     async function refreshNotifications() {
       if (requestInFlight || !navigator.onLine || document.visibilityState !== 'visible') return;
@@ -65,8 +77,9 @@ export function AppHeader() {
       try {
         const { data } = await api.get<UserNotification[]>('/notifications/mine');
         if (active) setNotifications(data);
-      } catch {
+      } catch (error) {
         // Le socket réessaiera et les alertes restent enregistrées côté serveur.
+        console.warn('Failed to refresh notifications:', error);
       } finally {
         requestInFlight = false;
       }
@@ -74,11 +87,12 @@ export function AppHeader() {
 
     function playNotificationSound() {
       try {
-        // Initialiser l'audio au premier appel
+        // Initialiser l'audio au premier appel avec configuration améliorée pour PWA
         if (!audioInitializedRef.current) {
           audioRef.current = new Audio('/notification.mp3');
           audioRef.current.volume = 0.5;
           audioRef.current.preload = 'auto';
+          audioRef.current.load(); // Force le chargement pour PWA
           audioInitializedRef.current = true;
         }
 
@@ -88,6 +102,7 @@ export function AppHeader() {
         // Réinitialiser pour pouvoir rejouer
         audio.currentTime = 0;
         
+        // Essayer de jouer avec une meilleure gestion des erreurs
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.catch((error: Error) => {
@@ -95,11 +110,35 @@ export function AppHeader() {
             // Si l'audio context n'est pas autorisé, on essaie de le réinitialiser
             if (error.name === 'NotAllowedError') {
               audioInitializedRef.current = false;
+              // Tenter de débloquer l'audio context
+              const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+              if (AudioContext) {
+                const ctx = new AudioContext();
+                ctx.resume().catch(() => {});
+              }
             }
           });
         }
       } catch (error) {
         console.error('Audio error:', error);
+      }
+    }
+
+    // Initialiser l'audio lors de la première interaction utilisateur
+    function initAudioOnInteraction() {
+      if (!audioInitializedRef.current) {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContext) {
+          const ctx = new AudioContext();
+          ctx.resume().catch(() => {});
+        }
+        // Précharger l'audio silencieusement
+        const tempAudio = new Audio('/notification.mp3');
+        tempAudio.volume = 0;
+        tempAudio.play().then(() => {
+          tempAudio.pause();
+          tempAudio.currentTime = 0;
+        }).catch(() => {});
       }
     }
 
@@ -117,11 +156,23 @@ export function AppHeader() {
       ));
     }
 
-    socket.on('connect', refreshNotifications);
-    socket.on('notification:new', onNewNotification);
-    socket.on('notification:removed', onNotificationRemoved);
+    notificationsSocket.on('connect', refreshNotifications);
+    notificationsSocket.on('notification:new', onNewNotification);
+    notificationsSocket.on('notification:removed', onNotificationRemoved);
+    notificationsSocket.on('disconnect', (reason) => {
+      console.log('Notifications socket disconnected:', reason);
+      // Tenter de se reconnecter automatiquement si ce n'est pas une déconnexion volontaire
+      if (reason !== 'io client disconnect') {
+        setTimeout(() => {
+          if (!notificationsSocket.connected && user?.id) {
+            notificationsSocket.connect();
+          }
+        }, 2000);
+      }
+    });
+    
     void refreshNotifications();
-    if (!socket.connected) socket.connect();
+    if (!notificationsSocket.connected) notificationsSocket.connect();
     else void refreshNotifications();
 
     const refreshInterval = setInterval(refreshNotifications, 10000);
@@ -131,14 +182,29 @@ export function AppHeader() {
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onVisibilityChange);
 
+    // Initialiser l'audio lors de la première interaction utilisateur pour PWA
+    const handleFirstInteraction = () => {
+      initAudioOnInteraction();
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+    };
+    document.addEventListener('click', handleFirstInteraction, { once: true });
+    document.addEventListener('touchstart', handleFirstInteraction, { once: true });
+    document.addEventListener('keydown', handleFirstInteraction, { once: true });
+
     return () => {
       active = false;
       clearInterval(refreshInterval);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('online', onVisibilityChange);
-      socket.off('connect', refreshNotifications);
-      socket.off('notification:new', onNewNotification);
-      socket.off('notification:removed', onNotificationRemoved);
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
+      notificationsSocket.off('connect', refreshNotifications);
+      notificationsSocket.off('notification:new', onNewNotification);
+      notificationsSocket.off('notification:removed', onNotificationRemoved);
+      notificationsSocket.off('disconnect');
       disconnectNotificationsSocket();
     };
   }, [user?.id]);
@@ -167,10 +233,10 @@ export function AppHeader() {
   }
 
   return (
-    <header className="border-b border-ink-line">
+    <header className="border-b border-ink-line sticky top-0 z-30 bg-ink">
       <div className="mx-auto max-w-4xl px-4 py-3 sm:px-6 sm:py-4 md:flex md:items-center md:justify-between md:gap-6">
         <div className="flex min-w-0 items-center justify-between gap-3 md:flex-1">
-          <Link href={user ? '/dashboard' : '/'} className="truncate font-display text-lg text-parchment">
+          <Link href={user ? '/dashboard' : '/'} className="truncate font-display text-lg text-parchment touch-manipulation">
             Conquête du Bureau
           </Link>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
@@ -183,8 +249,11 @@ export function AppHeader() {
                   aria-expanded={notificationsOpen}
                   aria-controls="user-notifications"
                   title="Notifications"
-                  onClick={() => setNotificationsOpen((open) => !open)}
-                  className="relative flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted transition hover:border-brass hover:text-brass"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setNotificationsOpen((open) => !open);
+                  }}
+                  className="relative flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted transition hover:border-brass hover:text-brass touch-manipulation"
                 >
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 12a2 2 0 0 0 4 0" />
@@ -200,8 +269,11 @@ export function AppHeader() {
                     <button
                       type="button"
                       aria-label="Fermer les notifications"
-                      onClick={() => setNotificationsOpen(false)}
-                      className="fixed inset-0 z-40 cursor-default bg-black/25"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setNotificationsOpen(false);
+                      }}
+                      className="fixed inset-0 z-40 cursor-default bg-black/25 touch-manipulation"
                     />
                     <section
                       id="user-notifications"
@@ -219,8 +291,15 @@ export function AppHeader() {
                             <button
                               key={notification.id}
                               type="button"
-                              onClick={() => void openNotification(notification)}
-                              className="block w-full px-4 py-3 text-left transition hover:bg-ink"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                void openNotification(notification);
+                              }}
+                              onTouchEnd={(e) => {
+                                e.preventDefault();
+                                void openNotification(notification);
+                              }}
+                              className="block w-full px-4 py-3 text-left transition hover:bg-ink touch-manipulation"
                             >
                               <span className="block text-sm text-brass">{notification.title}</span>
                               <span className="mt-1 block text-xs text-parchment-muted">{notification.message}</span>
@@ -239,10 +318,17 @@ export function AppHeader() {
             {user ? (
               <button
                 type="button"
-                onClick={onLogout}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void onLogout();
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  void onLogout();
+                }}
                 aria-label="Déconnexion"
                 title="Déconnexion"
-                className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted hover:border-danger hover:text-danger sm:h-auto sm:w-auto sm:border-0 sm:text-xs"
+                className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment-muted hover:border-danger hover:text-danger sm:h-auto sm:w-auto sm:border-0 sm:text-xs touch-manipulation"
               >
                 <svg className="h-4 w-4 sm:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10 17l5-5-5-5m5 5H3m9-9h6a2 2 0 012 2v14a2 2 0 01-2 2h-6" />
@@ -271,8 +357,11 @@ export function AppHeader() {
               aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               aria-expanded={menuOpen}
               aria-controls="main-navigation"
-              onClick={() => setMenuOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment md:hidden"
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen((open) => !open);
+              }}
+              className="flex h-9 w-9 items-center justify-center border border-ink-line text-parchment md:hidden touch-manipulation"
             >
               <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                 {menuOpen ? (
@@ -293,8 +382,11 @@ export function AppHeader() {
             <Link
               key={link.href}
               href={link.href}
-              onClick={() => setMenuOpen(false)}
-              className={`text-sm transition ${
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+              }}
+              className={`text-sm transition touch-manipulation ${
                 pathname === link.href
                   ? 'text-brass'
                   : 'text-parchment-muted hover:text-parchment'
@@ -306,8 +398,11 @@ export function AppHeader() {
           {user?.role === 'ADMIN' && (
             <Link
               href="/admin"
-              onClick={() => setMenuOpen(false)}
-              className={`font-mono text-xs uppercase ${
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+              }}
+              className={`font-mono text-xs uppercase touch-manipulation ${
                 pathname.startsWith('/admin')
                   ? 'text-brass'
                   : 'text-parchment-muted hover:text-parchment'
@@ -319,8 +414,11 @@ export function AppHeader() {
           {!user && (
             <Link
               href="/register"
-              onClick={() => setMenuOpen(false)}
-              className="block px-3 py-2 text-sm text-brass md:px-0 md:py-0"
+              onClick={(e) => {
+                e.preventDefault();
+                setMenuOpen(false);
+              }}
+              className="block px-3 py-2 text-sm text-brass md:px-0 md:py-0 touch-manipulation"
             >
               Créer un compte
             </Link>
