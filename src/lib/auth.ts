@@ -44,7 +44,14 @@ export async function restoreSession(): Promise<AuthUser | null> {
     const { data } = await api.post('/auth/refresh');
     return await persistTokenAndFetchUser(data.accessToken);
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response?.status === 401) return null;
-    throw error;
+    // Gérer les erreurs réseau et les erreurs d'authentification silencieusement
+    if (axios.isAxiosError(error)) {
+      // 401 = pas de session valide (visiteur)
+      if (error.response?.status === 401) return null;
+      // Network Error = problème de connexion (offline, backend down)
+      if (error.code === 'ERR_NETWORK' || !error.response) return null;
+    }
+    // Autres erreurs: ne pas throw pour éviter de crasher l'app
+    return null;
   }
 }

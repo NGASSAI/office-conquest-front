@@ -11,7 +11,6 @@ interface GameState {
   highScore: number;
   distance: number;
   speed: number;
-  level: number;
 }
 
 interface Player {
@@ -23,8 +22,6 @@ interface Player {
   isMovingDown: boolean;
   isMovingLeft: boolean;
   isMovingRight: boolean;
-  shield: boolean;
-  powerUp: boolean;
 }
 
 interface Obstacle {
@@ -45,20 +42,30 @@ interface Collectible {
   collected: boolean;
 }
 
-interface PowerUp {
-  id: number;
-  x: number;
-  y: number;
-  type: 'shield' | 'speed' | 'magnet';
-  collected: boolean;
-}
-
 interface EndlessRunnerProps {
   onGameOver?: (score: number, distance: number) => void;
   onScoreUpdate?: (score: number) => void;
 }
 
 export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps) {
+  // Configuration simplifiée mais professionnelle
+  const CONFIG = {
+    CANVAS_HEIGHT: 450,
+    CANVAS_WIDTH: 800,
+    PLAYER_WIDTH: 50,
+    PLAYER_HEIGHT: 50,
+    PLAYER_SPEED: 8,
+    MIN_X: 50,
+    MAX_X: 700,
+    MIN_Y: 30,
+    MAX_Y: 350,
+    MOVE_INCREMENT: 15,
+    INITIAL_SPEED: 4,
+    MAX_SPEED: 12,
+    SPEED_INCREMENT: 0.001,
+    SPAWN_INTERVAL: 1500, // Spawn tous les 1.5 secondes - garanti
+  };
+
   const [gameState, setGameState] = useState<GameState>({
     isPlaying: false,
     isPaused: false,
@@ -66,8 +73,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     score: 0,
     highScore: 0,
     distance: 0,
-    speed: 4,
-    level: 1,
+    speed: CONFIG.INITIAL_SPEED,
   });
   
   const [player, setPlayer] = useState<Player>({
@@ -79,48 +85,22 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     isMovingDown: false,
     isMovingLeft: false,
     isMovingRight: false,
-    shield: false,
-    powerUp: false,
   });
   
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [collectibles, setCollectibles] = useState<Collectible[]>([]);
-  const [powerUps, setPowerUps] = useState<PowerUp[]>([]);
   const [showTutorial, setShowTutorial] = useState(true);
-  const [combo, setCombo] = useState(0);
   const [coins, setCoins] = useState(0);
   
   const gameLoopRef = useRef<number | undefined>(undefined);
   const obstacleIdRef = useRef(0);
   const collectibleIdRef = useRef(0);
-  const powerUpIdRef = useRef(0);
   const lastSpawnRef = useRef(0);
   const canvasRef = useRef<HTMLDivElement>(null);
   const moveIntervalRef = useRef<number | undefined>(undefined);
-  
-  // Configuration professionnelle inspirée des jeux de plateforme
-  const CONFIG = {
-    CANVAS_HEIGHT: 450,
-    CANVAS_WIDTH: 800,
-    PLAYER_WIDTH: 45,
-    PLAYER_HEIGHT: 45,
-    PLAYER_SPEED: 6,
-    MIN_X: 50,
-    MAX_X: 700,
-    MIN_Y: 30,
-    MAX_Y: 350,
-    MOVE_INCREMENT: 12,
-    INITIAL_SPEED: 3,
-    MAX_SPEED: 10,
-    SPEED_INCREMENT: 0.0003,
-    OBSTACLE_SPAWN_RATE: 0.03,
-    COLLECTIBLE_SPAWN_RATE: 0.04,
-    POWER_UP_SPAWN_RATE: 0.008,
-    MIN_OBSTACLE_GAP: 180,
-    MAX_OBSTACLE_GAP: 350,
-  };
+  const currentScoreRef = useRef(0);
 
-  // Contrôles progressifs dans toutes les directions
+  // Contrôles progressifs
   const startMovingUp = useCallback(() => {
     if (gameState.isPlaying && !gameState.isPaused) {
       setPlayer(prev => ({
@@ -179,7 +159,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     }));
   }, []);
 
-  // Mouvement continu avec interval
+  // Mouvement continu
   useEffect(() => {
     if (player.isMovingUp || player.isMovingDown || player.isMovingLeft || player.isMovingRight) {
       moveIntervalRef.current = window.setInterval(() => {
@@ -215,7 +195,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     };
   }, [player.isMovingUp, player.isMovingDown, player.isMovingLeft, player.isMovingRight]);
 
-  // Interpolation fluide de la position du joueur
+  // Interpolation fluide
   useEffect(() => {
     if (!gameState.isPlaying || gameState.isPaused) return;
 
@@ -228,13 +208,13 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         let newY = prev.y;
         
         if (Math.abs(diffX) > 1) {
-          newX = prev.x + diffX * 0.15;
+          newX = prev.x + diffX * 0.2;
         } else {
           newX = prev.targetX;
         }
         
         if (Math.abs(diffY) > 1) {
-          newY = prev.y + diffY * 0.15;
+          newY = prev.y + diffY * 0.2;
         } else {
           newY = prev.targetY;
         }
@@ -247,16 +227,16 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
   }, [gameState.isPlaying, gameState.isPaused]);
 
   const startGame = useCallback(() => {
-    setGameState({
+    currentScoreRef.current = 0;
+    setGameState(prev => ({
       isPlaying: true,
       isPaused: false,
       isGameOver: false,
       score: 0,
-      highScore: gameState.highScore,
+      highScore: prev.highScore,
       distance: 0,
       speed: CONFIG.INITIAL_SPEED,
-      level: 1,
-    });
+    }));
     setPlayer({
       x: 150,
       y: CONFIG.CANVAS_HEIGHT / 2,
@@ -266,40 +246,87 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       isMovingDown: false,
       isMovingLeft: false,
       isMovingRight: false,
-      shield: false,
-      powerUp: false,
     });
     setObstacles([]);
     setCollectibles([]);
-    setPowerUps([]);
-    setCombo(0);
     setCoins(0);
     obstacleIdRef.current = 0;
     collectibleIdRef.current = 0;
-    powerUpIdRef.current = 0;
     lastSpawnRef.current = 0;
     setShowTutorial(true);
   }, [gameState.highScore]);
 
   const pauseGame = useCallback(() => {
-    setGameState(prev => ({ ...prev, isPaused: true }));
+    setGameState(prev => ({ ...prev, isPaused: true, speed: prev.speed }));
   }, []);
 
   const resumeGame = useCallback(() => {
-    setGameState(prev => ({ ...prev, isPaused: false }));
+    setGameState(prev => ({ ...prev, isPaused: false, speed: prev.speed }));
   }, []);
 
   const endGame = useCallback(() => {
-    setGameState(prev => ({
-      ...prev,
-      isPlaying: false,
-      isGameOver: true,
-      highScore: Math.max(prev.score, prev.highScore),
-    }));
-    onGameOver?.(gameState.score, gameState.distance);
-  }, [gameState.score, gameState.distance, onGameOver]);
+    setGameState(prev => {
+      const newHighScore = Math.max(prev.score, prev.highScore);
+      onGameOver?.(currentScoreRef.current, prev.distance);
+      return {
+        ...prev,
+        isPlaying: false,
+        isGameOver: true,
+        highScore: newHighScore,
+      };
+    });
+  }, [onGameOver]);
 
-  // Game loop principal
+  // Spawn simple et garanti d'obstacles
+  const spawnElements = useCallback(() => {
+    const obstacleTypes: Obstacle['type'][] = ['barrier', 'laser', 'spike'];
+    const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+    
+    const sizes = {
+      barrier: { width: 40, height: 60 },
+      laser: { width: 20, height: 100 },
+      spike: { width: 35, height: 45 },
+    };
+    
+    const size = sizes[type];
+    const randomY = CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - size.height);
+    
+    setObstacles(obs => {
+      const newObstacle: Obstacle = {
+        id: obstacleIdRef.current++,
+        x: CONFIG.CANVAS_WIDTH,
+        y: randomY,
+        type,
+        width: size.width,
+        height: size.height,
+      };
+      return [...obs, newObstacle];
+    });
+    
+    // Spawn collectible
+    const collectibleTypes: Collectible['type'][] = ['coin', 'gem', 'star'];
+    const cType = collectibleTypes[Math.floor(Math.random() * collectibleTypes.length)];
+    
+    const values = {
+      coin: 10,
+      gem: 25,
+      star: 50,
+    };
+    
+    setCollectibles(cols => {
+      const newCollectible = {
+        id: collectibleIdRef.current++,
+        x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
+        y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
+        type: cType,
+        value: values[cType],
+        collected: false,
+      };
+      return [...cols, newCollectible];
+    });
+  }, []);
+
+  // Game loop simplifié mais fonctionnel
   useEffect(() => {
     if (!gameState.isPlaying || gameState.isPaused) {
       if (gameLoopRef.current) {
@@ -309,109 +336,43 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
     }
 
     const gameLoop = (timestamp: number) => {
+      // Spawn à interval fixe garanti
+      if (timestamp - lastSpawnRef.current > CONFIG.SPAWN_INTERVAL) {
+        spawnElements();
+        lastSpawnRef.current = timestamp;
+      }
+      
       // Update game state
       setGameState(prev => {
         const newSpeed = Math.min(CONFIG.MAX_SPEED, prev.speed + CONFIG.SPEED_INCREMENT);
         const newDistance = prev.distance + newSpeed * 0.05;
-        const newLevel = Math.floor(newDistance / 200) + 1;
-        
-        // Spawn obstacles avec logique métier améliorée
-        const gap = CONFIG.MIN_OBSTACLE_GAP + Math.random() * (CONFIG.MAX_OBSTACLE_GAP - CONFIG.MIN_OBSTACLE_GAP);
-        if (timestamp - lastSpawnRef.current > gap / newSpeed * 1000) {
-          const obstacleTypes: Obstacle['type'][] = ['barrier', 'laser', 'spike'];
-          const type = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
-          
-          const sizes = {
-            barrier: { width: 35, height: 50 },
-            laser: { width: 15, height: 100 },
-            spike: { width: 30, height: 40 },
-          };
-          
-          const size = sizes[type];
-          
-          // Position Y aléatoire pour varier les défis
-          const randomY = CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - size.height);
-          
-          setObstacles(obs => [...obs, {
-            id: obstacleIdRef.current++,
-            x: CONFIG.CANVAS_WIDTH,
-            y: randomY,
-            type,
-            width: size.width,
-            height: size.height,
-          }]);
-          
-          // Spawn collectibles (pièces) inspiré des jeux de plateforme
-          if (Math.random() < CONFIG.COLLECTIBLE_SPAWN_RATE) {
-            const collectibleTypes: Collectible['type'][] = ['coin', 'gem', 'star'];
-            const cType = collectibleTypes[Math.floor(Math.random() * collectibleTypes.length)];
-            
-            const values = {
-              coin: 10,
-              gem: 25,
-              star: 50,
-            };
-            
-            setCollectibles(cols => [...cols, {
-              id: collectibleIdRef.current++,
-              x: CONFIG.CANVAS_WIDTH + Math.random() * 150,
-              y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 30),
-              type: cType,
-              value: values[cType],
-              collected: false,
-            }]);
-          }
-          
-          // Spawn power-up occasionnellement
-          if (Math.random() < CONFIG.POWER_UP_SPAWN_RATE) {
-            const powerUpTypes: PowerUp['type'][] = ['shield', 'speed', 'magnet'];
-            const pType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
-            
-            setPowerUps(powers => [...powers, {
-              id: powerUpIdRef.current++,
-              x: CONFIG.CANVAS_WIDTH + Math.random() * 100,
-              y: CONFIG.MIN_Y + Math.random() * (CONFIG.MAX_Y - CONFIG.MIN_Y - 40),
-              type: pType,
-              collected: false,
-            }]);
-          }
-          
-          lastSpawnRef.current = timestamp;
-        }
         
         return {
           ...prev,
           speed: newSpeed,
           distance: newDistance,
-          level: newLevel,
         };
       });
 
       // Move obstacles
       setObstacles(prev => {
-        const filtered = prev.filter(obs => obs.x > -80);
+        const filtered = prev.filter(obs => obs.x > -100);
         return filtered.map(obs => ({ ...obs, x: obs.x - gameState.speed }));
       });
 
       // Move collectibles
       setCollectibles(prev => {
-        const filtered = prev.filter(c => c.x > -80 && !c.collected);
+        const filtered = prev.filter(c => c.x > -100 && !c.collected);
         return filtered.map(c => ({ ...c, x: c.x - gameState.speed }));
       });
 
-      // Move power-ups
-      setPowerUps(prev => {
-        const filtered = prev.filter(p => p.x > -80 && !p.collected);
-        return filtered.map(p => ({ ...p, x: p.x - gameState.speed }));
-      });
-
-      // Collision detection avec obstacles
+      // Collision detection
       setObstacles(prev => {
         const playerHitbox = {
-          x: player.x + 8,
-          y: player.y + 8,
-          width: CONFIG.PLAYER_WIDTH - 16,
-          height: CONFIG.PLAYER_HEIGHT - 16,
+          x: player.x + 10,
+          y: player.y + 10,
+          width: CONFIG.PLAYER_WIDTH - 20,
+          height: CONFIG.PLAYER_HEIGHT - 20,
         };
         
         for (const obs of prev) {
@@ -428,89 +389,29 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
             playerHitbox.y < obsHitbox.y + obsHitbox.height &&
             playerHitbox.y + playerHitbox.height > obsHitbox.y
           ) {
-            if (player.shield) {
-              // Shield protects, remove obstacle
-              return prev.filter(o => o.id !== obs.id);
-            } else {
-              endGame();
-              return prev;
-            }
+            endGame();
+            return prev;
           }
         }
         return prev;
       });
 
-      // Collectible detection (pièces inspiré des jeux de plateforme)
+      // Collectible detection
       setCollectibles(prev => {
-        let newScore = gameState.score;
-        let newCoins = coins;
-        let newCombo = combo;
-        
         const updated = prev.map(c => {
           const distance = Math.sqrt(
             Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - c.x, 2) +
             Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - c.y, 2)
           );
           
-          if (!c.collected && distance < 40) {
-            newCombo++;
-            newCoins++;
-            newScore += c.value + (newCombo * 2);
-            
-            onScoreUpdate?.(newScore);
-            setCombo(newCombo);
-            setCoins(newCoins);
+          if (!c.collected && distance < 45) {
+            setCoins(prevCoins => prevCoins + 1);
+            currentScoreRef.current += c.value;
+            setGameState(prevState => ({ ...prevState, score: currentScoreRef.current }));
+            onScoreUpdate?.(currentScoreRef.current);
             return { ...c, collected: true };
           }
           return c;
-        });
-        
-        setGameState(prev => ({ ...prev, score: newScore }));
-        return updated;
-      });
-
-      // Power-up detection
-      setPowerUps(prev => {
-        const updated = prev.map(p => {
-          const distance = Math.sqrt(
-            Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - p.x, 2) +
-            Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - p.y, 2)
-          );
-          
-          if (!p.collected && distance < 45) {
-            if (p.type === 'shield') {
-              setPlayer(prev => ({ ...prev, shield: true }));
-              setTimeout(() => {
-                setPlayer(prev => ({ ...prev, shield: false }));
-              }, 5000);
-            } else if (p.type === 'speed') {
-              setGameState(prev => ({ ...prev, speed: Math.min(CONFIG.MAX_SPEED, prev.speed + 2) }));
-              setTimeout(() => {
-                setGameState(prev => ({ ...prev, speed: Math.max(CONFIG.INITIAL_SPEED, prev.speed - 2) }));
-              }, 3000);
-            } else if (p.type === 'magnet') {
-              // Magnet attire les pièces proches
-              setCollectibles(cols => {
-                return cols.map(c => {
-                  if (!c.collected) {
-                    const dist = Math.sqrt(
-                      Math.pow(player.x + CONFIG.PLAYER_WIDTH / 2 - c.x, 2) +
-                      Math.pow(player.y + CONFIG.PLAYER_HEIGHT / 2 - c.y, 2)
-                    );
-                    if (dist < 150) {
-                      return { ...c, x: c.x + (player.x - c.x) * 0.1, y: c.y + (player.y - c.y) * 0.1 };
-                    }
-                  }
-                  return c;
-                });
-              });
-              setTimeout(() => {
-                // Arrêter l'effet magnétique
-              }, 5000);
-            }
-            return { ...p, collected: true };
-          }
-          return p;
         });
         
         return updated;
@@ -526,7 +427,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
         cancelAnimationFrame(gameLoopRef.current);
       }
     };
-  }, [gameState.isPlaying, gameState.isPaused, gameState.speed, gameState.score, player.x, player.y, player.shield, combo, coins, endGame, onScoreUpdate]);
+  }, [gameState.isPlaying, gameState.isPaused, gameState.speed, player.x, player.y, endGame, onScoreUpdate, spawnElements]);
 
   // Controls
   useEffect(() => {
@@ -600,15 +501,6 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
       coin: '🪙',
       gem: '💎',
       star: '⭐',
-    };
-    return icons[type];
-  };
-
-  const getPowerUpIcon = (type: PowerUp['type']) => {
-    const icons = {
-      shield: '🛡️',
-      speed: '🚀',
-      magnet: '🧲',
     };
     return icons[type];
   };
@@ -807,26 +699,12 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          {combo > 0 && (
-            <div className="flex items-center gap-2 bg-brass/20 px-3 py-1 rounded-full border border-brass">
-              <span className="text-2xl">⚡</span>
-              <span className="font-mono text-sm text-brass">x{combo}</span>
-            </div>
-          )}
-          {player.shield && (
-            <div className="flex items-center gap-2 bg-teal/20 px-3 py-1 rounded-full border border-teal">
-              <span className="text-2xl">🛡️</span>
-              <span className="text-sm text-teal">Shield</span>
-            </div>
-          )}
-          <button
-            onClick={pauseGame}
-            className="p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
-          >
-            <span className="text-2xl">⏸️</span>
-          </button>
-        </div>
+        <button
+          onClick={pauseGame}
+          className="p-3 rounded-xl border border-ink-line text-parchment-muted hover:border-brass hover:text-brass transition-all touch-manipulation"
+        >
+          <span className="text-2xl">⏸️</span>
+        </button>
       </div>
 
       {/* Game Canvas moderne */}
@@ -861,12 +739,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
             height: `${CONFIG.PLAYER_HEIGHT}px`,
           }}
         >
-          <div className="relative">
-            {player.shield && (
-              <div className="absolute -inset-3 rounded-full border-4 border-teal opacity-60 animate-pulse" />
-            )}
-            <div className="text-4xl">🏃‍♂️</div>
-          </div>
+          <div className="text-4xl">🏃‍♂️</div>
         </div>
 
         {/* Obstacles modernes */}
@@ -892,7 +765,7 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
           ))}
         </AnimatePresence>
 
-        {/* Collectibles (pièces inspiré des jeux de plateforme) */}
+        {/* Collectibles */}
         <AnimatePresence>
           {collectibles.map(c => (
             <motion.div
@@ -910,28 +783,6 @@ export function EndlessRunner({ onGameOver, onScoreUpdate }: EndlessRunnerProps)
               transition={{ duration: 0.8, repeat: c.collected ? 0 : Infinity }}
             >
               <div className="text-xl">{getCollectibleIcon(c.type)}</div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {/* Power-ups modernes */}
-        <AnimatePresence>
-          {powerUps.map(p => (
-            <motion.div
-              key={p.id}
-              className="absolute flex items-center justify-center rounded-full shadow-lg"
-              style={{
-                left: `${p.x}px`,
-                top: `${p.y}px`,
-                width: '40px',
-                height: '40px',
-                background: p.type === 'shield' ? 'rgba(47, 111, 107, 0.9)' : p.type === 'speed' ? 'rgba(201, 162, 39, 0.9)' : 'rgba(180, 70, 47, 0.9)',
-                border: '2px solid #EDEAE0',
-              }}
-              animate={p.collected ? { scale: 0, opacity: 0 } : { scale: [1, 1.15, 1] }}
-              transition={{ duration: 0.6, repeat: p.collected ? 0 : Infinity }}
-            >
-              <div className="text-xl">{getPowerUpIcon(p.type)}</div>
             </motion.div>
           ))}
         </AnimatePresence>

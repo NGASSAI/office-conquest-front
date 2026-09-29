@@ -53,6 +53,10 @@ async function refreshAccessToken(): Promise<string> {
       .catch((error) => {
         // Échec du refresh : on nettoie le promise pour permettre un nouvel essai
         refreshPromise = null;
+        // Ne pas loguer les erreurs réseau qui sont normales en offline
+        if (axios.isAxiosError(error) && error.code !== 'ERR_NETWORK') {
+          console.error('Refresh token failed:', error);
+        }
         throw error;
       })
       .finally(() => {

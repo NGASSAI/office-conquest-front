@@ -26,11 +26,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       .catch((error) => {
         if (!cancelled) {
-          console.error('Session restore failed:', error);
+          // Les erreurs réseau sont normales en offline, ne pas les loguer comme des erreurs
+          const isNetworkError = error?.code === 'ERR_NETWORK' || error?.message?.includes('Network Error');
+          if (!isNetworkError) {
+            console.error('Session restore failed:', error);
+          }
           setRestoreFailed(true);
           
-          // Tentative automatique de reconnexion après un délai
-          if (retryCount < 3) {
+          // Tentative automatique de reconnexion après un délai seulement si ce n'est pas une erreur réseau
+          if (!isNetworkError && retryCount < 3) {
             setIsRetrying(true);
             retryTimeoutRef.current = setTimeout(() => {
               setRetryCount((count) => count + 1);

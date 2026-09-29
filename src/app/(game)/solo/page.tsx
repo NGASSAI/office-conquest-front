@@ -47,6 +47,8 @@ export default function SoloGamePage() {
   }
 
   async function handleGameOver(score: number, distance: number) {
+    const isHighScore = score > (gameData?.highScore || 0);
+    
     const newGameData: OfflineGameData = {
       highScore: Math.max(gameData?.highScore || 0, score),
       totalGames: (gameData?.totalGames || 0) + 1,
@@ -55,15 +57,17 @@ export default function SoloGamePage() {
       achievements: gameData?.achievements || [],
     };
 
-    // Nouveau high score
-    if (score > (gameData?.highScore || 0)) {
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 3000);
-    }
-
     // Sauvegarder localement
     await offlineStorage.saveGameData(newGameData);
     setGameData(newGameData);
+
+    // Nouveau high score - déclencher le confetti de manière asynchrone
+    if (isHighScore) {
+      setTimeout(() => {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }, 0);
+    }
 
     // Sync avec le serveur si connecté
     if (isOnline) {
