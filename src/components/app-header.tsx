@@ -70,11 +70,25 @@ export function AppHeader() {
       }
     }
 
+    function playNotificationSound() {
+      try {
+        const audio = new Audio('/notification.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(() => {
+          // Le navigateur peut bloquer la lecture si l'utilisateur n'a pas interagi
+          // C'est normal, on ignore l'erreur
+        });
+      } catch {
+        // Erreur silencieuse si le son ne peut pas être joué
+      }
+    }
+
     function onNewNotification(notification: UserNotification) {
       setNotifications((current) => [
         notification,
         ...current.filter((item) => item.id !== notification.id),
       ].slice(0, 30));
+      playNotificationSound();
     }
 
     function onNotificationRemoved(payload: { id?: string; targetId?: string }) {

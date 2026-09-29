@@ -18,6 +18,10 @@ const serwist = new Serwist({
       matcher: ({ sameOrigin, url: { pathname } }) => sameOrigin && pathname.startsWith('/api/'),
       handler: new NetworkOnly(),
     },
+    {
+      matcher: ({ sameOrigin, url: { pathname } }) => sameOrigin && pathname.endsWith('.mp3'),
+      handler: new NetworkOnly(),
+    },
     ...defaultCache,
   ],
 });
